@@ -15,8 +15,8 @@ GITHUB_OUTPUT_MODE="false"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --boards) BOARDS_ARG="${2:?}"; shift 2 ;;
-        --output) OUTPUT_FILE="${2:?}"; shift 2 ;;
+        --boards) BOARDS_ARG="${2:-}"; shift 2 ;;
+        --output) OUTPUT_FILE="${2:-}"; shift 2 ;;
         --github-output) GITHUB_OUTPUT_MODE="true"; shift ;;
         -h|--help)
             echo "Usage: prepare-matrix.sh [--boards all|id1,id2] [--output FILE] [--github-output]"
@@ -26,6 +26,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+BOARDS_ARG="${BOARDS_ARG:-all}"
 DEFAULTS="${REPO_ROOT}/config/defaults.conf"
 BOARDS_DIR="${REPO_ROOT}/boards"
 

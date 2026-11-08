@@ -42,14 +42,14 @@ KEEP_SOURCE="false"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --repo-url) REPO_URL="${2:?}"; shift 2 ;;
-        --tag) TAG="${2:?}"; shift 2 ;;
-        --config) CONFIG_FILE="${2:?}"; shift 2 ;;
-        --expected-version) EXPECTED="${2:?}"; shift 2 ;;
-        --output-dir) OUT_DIR="${2:?}"; shift 2 ;;
-        --arch) ARCH="${2:?}"; shift 2 ;;
-        --cross-compile) CROSS_COMPILE="${2:?}"; shift 2 ;;
-        --jobs) JOBS="${2:?}"; shift 2 ;;
+        --repo-url) REPO_URL="${2:-}"; shift 2 ;;
+        --tag) TAG="${2:-}"; shift 2 ;;
+        --config) CONFIG_FILE="${2:-}"; shift 2 ;;
+        --expected-version) EXPECTED="${2:-}"; shift 2 ;;
+        --output-dir) OUT_DIR="${2:-}"; shift 2 ;;
+        --arch) ARCH="${2:-}"; shift 2 ;;
+        --cross-compile) CROSS_COMPILE="${2:-}"; shift 2 ;;
+        --jobs) JOBS="${2:-}"; shift 2 ;;
         --keep-source) KEEP_SOURCE="true"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" ;;
@@ -62,6 +62,9 @@ done
 [ -n "$EXPECTED" ] || die "--expected-version is required"
 [ -n "$OUT_DIR" ] || die "--output-dir is required"
 [ -f "$CONFIG_FILE" ] || die "Config file not found: $CONFIG_FILE"
+ARCH="${ARCH:-arm64}"
+CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}"
+JOBS="${JOBS:-$(nproc)}"
 mkdir -p "$OUT_DIR"
 OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 

@@ -57,19 +57,19 @@ FALLBACK_MODULES="true"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --repo) REPO="${2:?}"; shift 2 ;;
-        --release) RELEASE="${2:?}"; shift 2 ;;
-        --output-dir) OUT_DIR="${2:?}"; shift 2 ;;
-        --tag-pattern) TAG_PATTERN="${2:?}"; shift 2 ;;
-        --image-pattern) IMAGE_PATTERN="${2:?}"; shift 2 ;;
-        --config-pattern) CONFIG_PATTERN="${2:?}"; shift 2 ;;
-        --systemmap-pattern) SYSTEMMAP_PATTERN="${2:?}"; shift 2 ;;
-        --dtb-pattern) DTB_PATTERN="${2:?}"; shift 2 ;;
-        --modules-pattern) MODULES_PATTERN="${2:?}"; shift 2 ;;
-        --git-url) GIT_URL="${2:?}"; shift 2 ;;
-        --arch) ARCH="${2:?}"; shift 2 ;;
-        --cross-compile) CROSS_COMPILE="${2:?}"; shift 2 ;;
-        --jobs) JOBS="${2:?}"; shift 2 ;;
+        --repo) REPO="${2:-}"; shift 2 ;;
+        --release) RELEASE="${2:-}"; shift 2 ;;
+        --output-dir) OUT_DIR="${2:-}"; shift 2 ;;
+        --tag-pattern) TAG_PATTERN="${2:-}"; shift 2 ;;
+        --image-pattern) IMAGE_PATTERN="${2:-}"; shift 2 ;;
+        --config-pattern) CONFIG_PATTERN="${2:-}"; shift 2 ;;
+        --systemmap-pattern) SYSTEMMAP_PATTERN="${2:-}"; shift 2 ;;
+        --dtb-pattern) DTB_PATTERN="${2:-}"; shift 2 ;;
+        --modules-pattern) MODULES_PATTERN="${2:-}"; shift 2 ;;
+        --git-url) GIT_URL="${2:-}"; shift 2 ;;
+        --arch) ARCH="${2:-}"; shift 2 ;;
+        --cross-compile) CROSS_COMPILE="${2:-}"; shift 2 ;;
+        --jobs) JOBS="${2:-}"; shift 2 ;;
         --no-fallback-modules) FALLBACK_MODULES="false"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" ;;
@@ -78,6 +78,9 @@ done
 
 [ -n "$REPO" ] || die "--repo is required"
 [ -n "$OUT_DIR" ] || die "--output-dir is required"
+RELEASE="${RELEASE:-latest}"
+ARCH="${ARCH:-arm64}"
+CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}"
 [ -n "$GIT_URL" ] || GIT_URL="https://github.com/${REPO}.git"
 mkdir -p "$OUT_DIR"
 OUT_DIR="$(cd "$OUT_DIR" && pwd)"

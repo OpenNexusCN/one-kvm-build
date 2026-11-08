@@ -35,11 +35,11 @@ GITHUB_OUTPUT_MODE="false"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --repo) REPO="${2:?}"; shift 2 ;;
-        --release) RELEASE="${2:?}"; shift 2 ;;
-        --asset-pattern) ASSET_PATTERN="${2:?}"; shift 2 ;;
-        --min-version) MIN_VERSION="${2:?}"; shift 2 ;;
-        --wait-seconds) WAIT_SECONDS="${2:?}"; shift 2 ;;
+        --repo) REPO="${2:-}"; shift 2 ;;
+        --release) RELEASE="${2:-}"; shift 2 ;;
+        --asset-pattern) ASSET_PATTERN="${2:-}"; shift 2 ;;
+        --min-version) MIN_VERSION="${2:-}"; shift 2 ;;
+        --wait-seconds) WAIT_SECONDS="${2:-}"; shift 2 ;;
         --github-output) GITHUB_OUTPUT_MODE="true"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" ;;
@@ -47,6 +47,10 @@ while [ $# -gt 0 ]; do
 done
 
 require_cmd jq python3
+REPO="${REPO:-zoneBen/One-KVM}"
+RELEASE="${RELEASE:-latest}"
+ASSET_PATTERN="${ASSET_PATTERN:-one-kvm_*_arm64.deb}"
+WAIT_SECONDS="${WAIT_SECONDS:-0}"
 [[ "$WAIT_SECONDS" =~ ^[0-9]+$ ]] || die "--wait-seconds must be an integer"
 
 version_too_old() {

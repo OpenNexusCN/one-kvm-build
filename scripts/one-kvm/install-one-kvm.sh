@@ -30,13 +30,13 @@ ENABLED="true"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --root) ROOT="${2:?}"; shift 2 ;;
-        --deb) DEB="${2:?}"; shift 2 ;;
-        --url) URL="${2:?}"; shift 2 ;;
-        --sha256) SHA256="${2:?}"; shift 2 ;;
-        --version) VERSION="${2:?}"; shift 2 ;;
-        --kernel-version) KERNEL_VERSION="${2:?}"; shift 2 ;;
-        --enabled) ENABLED="${2:?}"; shift 2 ;;
+        --root) ROOT="${2:-}"; shift 2 ;;
+        --deb) DEB="${2:-}"; shift 2 ;;
+        --url) URL="${2:-}"; shift 2 ;;
+        --sha256) SHA256="${2:-}"; shift 2 ;;
+        --version) VERSION="${2:-}"; shift 2 ;;
+        --kernel-version) KERNEL_VERSION="${2:-}"; shift 2 ;;
+        --enabled) ENABLED="${2:-}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" ;;
     esac
@@ -50,6 +50,7 @@ fi
 [ -n "$ROOT" ] || die "--root is required"
 [ -d "$ROOT" ] || die "Root filesystem not found: $ROOT"
 [ -n "$DEB" ] || [ -n "$URL" ] || die "Provide --deb or --url"
+ENABLED="${ENABLED:-true}"
 
 require_cmd curl sha256sum
 

@@ -77,22 +77,22 @@ KEEP_WORK="false"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --board) ARG_BOARD="${2:?}"; shift 2 ;;
-        --config) ARG_CONFIG="${2:?}"; shift 2 ;;
-        --kernel-bundle) ARG_KERNEL_BUNDLE="${2:?}"; shift 2 ;;
-        --kernel-release) ARG_KERNEL_RELEASE="${2:?}"; shift 2 ;;
-        --base-image-url) ARG_BASE_URL="${2:?}"; shift 2 ;;
-        --base-image-name) ARG_BASE_NAME="${2:?}"; shift 2 ;;
-        --base-image-sha256) ARG_BASE_SHA="${2:?}"; shift 2 ;;
-        --one-kvm-url) ARG_ONE_KVM_URL="${2:?}"; shift 2 ;;
-        --one-kvm-version) ARG_ONE_KVM_VERSION="${2:?}"; shift 2 ;;
-        --one-kvm-sha256) ARG_ONE_KVM_SHA="${2:?}"; shift 2 ;;
-        --one-kvm-tag) ARG_ONE_KVM_TAG="${2:?}"; shift 2 ;;
+        --board) ARG_BOARD="${2:-}"; shift 2 ;;
+        --config) ARG_CONFIG="${2:-}"; shift 2 ;;
+        --kernel-bundle) ARG_KERNEL_BUNDLE="${2:-}"; shift 2 ;;
+        --kernel-release) ARG_KERNEL_RELEASE="${2:-}"; shift 2 ;;
+        --base-image-url) ARG_BASE_URL="${2:-}"; shift 2 ;;
+        --base-image-name) ARG_BASE_NAME="${2:-}"; shift 2 ;;
+        --base-image-sha256) ARG_BASE_SHA="${2:-}"; shift 2 ;;
+        --one-kvm-url) ARG_ONE_KVM_URL="${2:-}"; shift 2 ;;
+        --one-kvm-version) ARG_ONE_KVM_VERSION="${2:-}"; shift 2 ;;
+        --one-kvm-sha256) ARG_ONE_KVM_SHA="${2:-}"; shift 2 ;;
+        --one-kvm-tag) ARG_ONE_KVM_TAG="${2:-}"; shift 2 ;;
         --skip-one-kvm) ARG_SKIP_ONE_KVM="true"; shift ;;
-        --build-version) ARG_BUILD_VERSION="${2:?}"; shift 2 ;;
-        --compress) ARG_COMPRESS="${2:?}"; shift 2 ;;
-        --output-dir) ARG_OUTPUT_DIR="${2:?}"; shift 2 ;;
-        --work-dir) ARG_WORK_DIR="${2:?}"; shift 2 ;;
+        --build-version) ARG_BUILD_VERSION="${2:-}"; shift 2 ;;
+        --compress) ARG_COMPRESS="${2:-}"; shift 2 ;;
+        --output-dir) ARG_OUTPUT_DIR="${2:-}"; shift 2 ;;
+        --work-dir) ARG_WORK_DIR="${2:-}"; shift 2 ;;
         --keep-uncompressed) KEEP_UNCOMPRESSED="true"; shift ;;
         --keep-work) KEEP_WORK="true"; shift ;;
         -h|--help) usage; exit 0 ;;

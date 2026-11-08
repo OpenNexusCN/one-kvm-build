@@ -41,14 +41,14 @@ PLAN_DIR=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --boards) BOARDS="${2:?}"; shift 2 ;;
-        --kernel-release) KERNEL_RELEASE_IN="${2:?}"; shift 2 ;;
-        --one-kvm-repo) ONE_KVM_REPO_IN="${2:?}"; shift 2 ;;
-        --one-kvm-release) ONE_KVM_RELEASE_IN="${2:?}"; shift 2 ;;
-        --one-kvm-wait-minutes) ONE_KVM_WAIT_MINUTES="${2:?}"; shift 2 ;;
-        --create-release) CREATE_RELEASE="${2:?}"; shift 2 ;;
-        --version) VERSION="${2:?}"; shift 2 ;;
-        --output-dir) PLAN_DIR="${2:?}"; shift 2 ;;
+        --boards) BOARDS="${2:-}"; shift 2 ;;
+        --kernel-release) KERNEL_RELEASE_IN="${2:-}"; shift 2 ;;
+        --one-kvm-repo) ONE_KVM_REPO_IN="${2:-}"; shift 2 ;;
+        --one-kvm-release) ONE_KVM_RELEASE_IN="${2:-}"; shift 2 ;;
+        --one-kvm-wait-minutes) ONE_KVM_WAIT_MINUTES="${2:-}"; shift 2 ;;
+        --create-release) CREATE_RELEASE="${2:-}"; shift 2 ;;
+        --version) VERSION="${2:-}"; shift 2 ;;
+        --output-dir) PLAN_DIR="${2:-}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" ;;
     esac

@@ -13,9 +13,9 @@ RUN_ID="${GITHUB_RUN_ID:-}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --dir) DIR="${2:?}"; shift 2 ;;
-        --version) VERSION="${2:?}"; shift 2 ;;
-        --repo) REPO="${2:?}"; shift 2 ;;
+        --dir) DIR="${2:-}"; shift 2 ;;
+        --version) VERSION="${2:-}"; shift 2 ;;
+        --repo) REPO="${2:-}"; shift 2 ;;
         *) die "Unknown argument: $1" ;;
     esac
 done
