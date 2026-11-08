@@ -52,23 +52,32 @@ fi
 [ -n "$DEB" ] || [ -n "$URL" ] || die "Provide --deb or --url"
 ENABLED="${ENABLED:-true}"
 
-require_cmd curl sha256sum
+require_cmd curl sha256sum mktemp
+
+host_deb=""
+cleanup_deb() {
+    if [ -n "$host_deb" ]; then
+        rm -f "$host_deb"
+    fi
+}
+trap cleanup_deb EXIT
 
 mkdir -p "$ROOT/tmp"
 if [ -n "$URL" ]; then
-    DEB="${ROOT}/tmp/one-kvm.deb"
-    download_args=(-fL --retry 5 --retry-delay 5 --connect-timeout 30)
-    if [ -s "$DEB" ]; then
-        download_args+=(-C -)
-    fi
+    host_deb="$(mktemp "${TMPDIR:-/tmp}/one-kvm.XXXXXX.deb")"
+    DEB="$host_deb"
     info "Downloading One-KVM package ${URL}"
-    retry 5 curl "${download_args[@]}" -o "$DEB" "$URL" \
+    retry 5 curl -fL --retry 5 --retry-delay 5 --connect-timeout 30 \
+        -o "$DEB" "$URL" \
         || die "Failed to download One-KVM package"
 fi
 [ -f "$DEB" ] || die "One-KVM package not found: $DEB"
 verify_sha256 "$DEB" "$SHA256"
 
-cp -f "$DEB" "${ROOT}/tmp/one-kvm.deb"
+dest_deb="${ROOT}/tmp/one-kvm.deb"
+if [ "$(readlink -f "$DEB")" != "$(readlink -f "$dest_deb")" ]; then
+    cp -f "$DEB" "$dest_deb"
+fi
 cat >"${ROOT}/tmp/one-kvm-install.sh" <<'INSTALL_EOF'
 #!/bin/bash
 set -e

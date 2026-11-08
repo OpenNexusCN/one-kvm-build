@@ -16,14 +16,24 @@ chroot_mounts() {
     mountpoint -q "${root}/run" || mount -t tmpfs tmpfs "${root}/run"
 }
 
+# _umount_tree <mountpoint>
+# Recursively unmount a tree, falling back to a lazy unmount.  Used by the
+# chroot helpers and by family cleanup so a busy helper mount cannot keep the
+# image mounted.
+_umount_tree() {
+    local mnt="$1"
+    mountpoint -q "$mnt" 2>/dev/null || return 0
+    umount -R "$mnt" 2>/dev/null || umount -lR "$mnt" 2>/dev/null || true
+}
+
 # chroot_umounts <root>
 chroot_umounts() {
     local root="$1"
-    mountpoint -q "${root}/run" && umount "${root}/run" || true
-    mountpoint -q "${root}/dev/pts" && umount "${root}/dev/pts" || true
-    mountpoint -q "${root}/dev" && umount -R "${root}/dev" || true
-    mountpoint -q "${root}/sys" && umount -R "${root}/sys" || true
-    mountpoint -q "${root}/proc" && umount "${root}/proc" || true
+    _umount_tree "${root}/run"
+    _umount_tree "${root}/dev/pts"
+    _umount_tree "${root}/dev"
+    _umount_tree "${root}/sys"
+    _umount_tree "${root}/proc"
 }
 
 # install_qemu <root>

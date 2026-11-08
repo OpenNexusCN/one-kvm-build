@@ -48,6 +48,31 @@ _part_num() {
     printf '%s' "${base#"$(basename "$LOOP_DEV")"p}"
 }
 
+# Recognize a dedicated boot partition that may use extlinux, boot.scr,
+# armbianEnv.txt, uEnv.txt, or a plain Image + dtb layout.
+_boot_partition_like() {
+    local mnt="$1"
+    [ -f "${mnt}/extlinux/extlinux.conf" ] && return 0
+    [ -f "${mnt}/boot/extlinux/extlinux.conf" ] && return 0
+    [ -f "${mnt}/boot.scr" ] && return 0
+    [ -f "${mnt}/boot.cmd" ] && return 0
+    [ -f "${mnt}/armbianEnv.txt" ] && return 0
+    [ -f "${mnt}/uEnv.txt" ] && return 0
+    [ -f "${mnt}/boot/boot.scr" ] && return 0
+    [ -f "${mnt}/boot/boot.cmd" ] && return 0
+    [ -f "${mnt}/boot/armbianEnv.txt" ] && return 0
+    [ -f "${mnt}/boot/uEnv.txt" ] && return 0
+    if { [ -f "${mnt}/Image" ] || compgen -G "${mnt}/vmlinuz-*" >/dev/null; } \
+        && [ -d "${mnt}/dtb" ]; then
+        return 0
+    fi
+    if { [ -f "${mnt}/boot/Image" ] || compgen -G "${mnt}/boot/vmlinuz-*" >/dev/null; } \
+        && [ -d "${mnt}/boot/dtb" ]; then
+        return 0
+    fi
+    return 1
+}
+
 # ---------------------------------------------------------------------------
 # Inspect / grow / mount
 # ---------------------------------------------------------------------------
@@ -69,9 +94,7 @@ family_inspect_image() {
             ROOT_PART_NUM="$(_part_num "$part")"
             ROOT_FS="$(blkid -o value -s TYPE "$part" 2>/dev/null || true)"
             ROOT_UUID="$(blkid -o value -s UUID "$part" 2>/dev/null || true)"
-        elif [ -z "$BOOT_PART_NUM" ] \
-            && { [ -f "${mnt}/extlinux/extlinux.conf" ] \
-                 || [ -f "${mnt}/boot/extlinux/extlinux.conf" ]; }; then
+        elif [ -z "$BOOT_PART_NUM" ] && _boot_partition_like "$mnt"; then
             BOOT_PART_NUM="$(_part_num "$part")"
             BOOT_FS="$(blkid -o value -s TYPE "$part" 2>/dev/null || true)"
         fi
@@ -137,25 +160,50 @@ family_mount_image() {
     fi
     BOOT_MNT="${ROOT_MNT}/boot"
 
+    # Some single-partition images keep the boot files at the root of the
+    # root filesystem instead of /boot.
+    if [ ! -f "${BOOT_MNT}/extlinux/extlinux.conf" ] \
+        && [ ! -f "${BOOT_MNT}/boot.scr" ] && [ ! -f "${BOOT_MNT}/armbianEnv.txt" ] \
+        && { [ -f "${ROOT_MNT}/extlinux/extlinux.conf" ] \
+             || [ -f "${ROOT_MNT}/boot.scr" ] \
+             || [ -f "${ROOT_MNT}/armbianEnv.txt" ]; }; then
+        BOOT_MNT="$ROOT_MNT"
+    fi
+
+    # Some images put the boot files in a boot/ subdirectory of the boot
+    # partition; flatten it when that is the actual boot root.
+    if [ ! -f "${BOOT_MNT}/extlinux/extlinux.conf" ] \
+        && [ ! -f "${BOOT_MNT}/boot.scr" ] && [ ! -f "${BOOT_MNT}/armbianEnv.txt" ] \
+        && { [ -f "${BOOT_MNT}/boot/boot.scr" ] \
+             || [ -f "${BOOT_MNT}/boot/armbianEnv.txt" ]; }; then
+        BOOT_MNT="${BOOT_MNT}/boot"
+    fi
+
+    EXTLINUX_CONF=""
     if [ -f "${BOOT_MNT}/extlinux/extlinux.conf" ]; then
         EXTLINUX_CONF="${BOOT_MNT}/extlinux/extlinux.conf"
     elif [ -f "${BOOT_MNT}/boot/extlinux/extlinux.conf" ]; then
         EXTLINUX_CONF="${BOOT_MNT}/boot/extlinux/extlinux.conf"
         BOOT_MNT="${BOOT_MNT}/boot"
+    elif [ -f "${BOOT_MNT}/boot.scr" ] || [ -f "${BOOT_MNT}/boot.cmd" ] \
+        || [ -f "${BOOT_MNT}/armbianEnv.txt" ] || [ -f "${BOOT_MNT}/uEnv.txt" ]; then
+        info "No extlinux; using boot.scr/armbianEnv/uEnv boot configuration"
     else
         family_cleanup
-        die "Cannot find extlinux/extlinux.conf on the boot partition"
+        die "Cannot find extlinux.conf, boot.scr or armbianEnv.txt on the boot partition"
     fi
-    info "extlinux config: ${EXTLINUX_CONF}"
+    if [ -n "$EXTLINUX_CONF" ]; then
+        info "extlinux config: ${EXTLINUX_CONF}"
+    fi
 }
 
 family_cleanup() {
     sync || true
-    if [ -n "${ROOT_MNT:-}" ] && mountpoint -q "${ROOT_MNT}/boot" 2>/dev/null; then
-        umount "${ROOT_MNT}/boot" || true
-    fi
-    if [ -n "${ROOT_MNT:-}" ] && mountpoint -q "${ROOT_MNT}" 2>/dev/null; then
-        umount "$ROOT_MNT" || true
+    if [ -n "${ROOT_MNT:-}" ] && mountpoint -q "$ROOT_MNT" 2>/dev/null; then
+        # Recursively unmount /boot and any chroot helper mounts.  Fall back
+        # to a lazy unmount so a busy helper mount cannot leave the image
+        # attached on the runner.
+        _umount_tree "$ROOT_MNT"
     fi
     _loop_detach
 }
@@ -254,19 +302,39 @@ _prune_old_kernel() {
 
 family_configure_boot() {
     local KVER="$KERNEL_VERSION"
-    info "Patching ${EXTLINUX_CONF}"
-    python3 -I "${LIB_DIR}/extlinux_patch.py" \
-        --file "$EXTLINUX_CONF" \
-        --kernel /Image \
-        --fdt "/dtb/rockchip/${KERNEL_DTB}" \
-        --initrd /uInitrd
+    if [ -n "${EXTLINUX_CONF:-}" ]; then
+        info "Patching ${EXTLINUX_CONF}"
+        python3 -I "${LIB_DIR}/extlinux_patch.py" \
+            --file "$EXTLINUX_CONF" \
+            --kernel /Image \
+            --fdt "/dtb/rockchip/${KERNEL_DTB}" \
+            --initrd /uInitrd
+    else
+        info "No extlinux; boot.scr/uEnv will use ${KERNEL_DTB}"
+    fi
 
-    if [ -f "${BOOT_MNT}/armbianEnv.txt" ]; then
-        info "Updating armbianEnv.txt fdtfile"
-        sed -i -E "s|^fdtfile=.*|fdtfile=rockchip/${KERNEL_DTB}|" "${BOOT_MNT}/armbianEnv.txt"
-        if ! grep -q "^fdtfile=rockchip/${KERNEL_DTB}$" "${BOOT_MNT}/armbianEnv.txt"; then
-            printf 'fdtfile=rockchip/%s\n' "$KERNEL_DTB" >>"${BOOT_MNT}/armbianEnv.txt"
+    # Update both armbianEnv.txt and uEnv.txt.  The generic replacement
+    # covers fdtfile, FDTFILE, or a bare rockchip/... path.
+    local env_file
+    for env_file in armbianEnv.txt uEnv.txt; do
+        [ -f "${BOOT_MNT}/${env_file}" ] || continue
+        info "Updating ${env_file} device tree path"
+        sed -i -E "s|rockchip/[A-Za-z0-9._+-]+\.dtb|rockchip/${KERNEL_DTB}|g" \
+            "${BOOT_MNT}/${env_file}"
+        if [ "$env_file" = "armbianEnv.txt" ]; then
+            if grep -q '^fdtfile=' "${BOOT_MNT}/${env_file}"; then
+                sed -i -E "s|^fdtfile=.*|fdtfile=rockchip/${KERNEL_DTB}|" \
+                    "${BOOT_MNT}/${env_file}"
+            else
+                printf 'fdtfile=rockchip/%s\n' "$KERNEL_DTB" \
+                    >>"${BOOT_MNT}/${env_file}"
+            fi
         fi
+    done
+
+    if [ -z "${EXTLINUX_CONF:-}" ] \
+        && [ ! -f "${BOOT_MNT}/boot.scr" ] && [ ! -f "${BOOT_MNT}/boot.cmd" ]; then
+        die "No extlinux.conf and no boot.scr on the boot partition"
     fi
 
     # Keep the Armbian release file consistent for tools that inspect it.
