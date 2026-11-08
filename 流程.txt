@@ -1,0 +1,67 @@
+
+当前适配的是 fmx1-pro ，后续会追加其他板子思路差不多，会有个别地方不一致。
+第一步先去  https://github.com/ophub/amlogic-s9xxx-armbian 获取fmx1的镜像大约有两个rockchip_fmx1-pro和rockchip_fmx1-pro-b，如下
+Armbian_26.11.0_rockchip_fmx1-pro-b_noble_6.18.59_server_2026.11.02.img.gz
+sha256:bd1efdc3a922ea8e8d2ab4e337089fe08961f46a7a0b743d8e212f5f9b57a71d
+1.05 GB
+last week
+Armbian_26.11.0_rockchip_fmx1-pro_noble_6.18.59_server_2026.11.02.img.gz
+sha256:5c10d9e14332fe97972e7f564fde6314e45bcef71d77cbdf293308a6184ed2a8
+1.05 GB
+last week
+
+然后使用下面的内核、设备树（rk3399-fmx1-pro-otg.dtb）文件进行替换上面镜像里面的内核
+
+https://github.com/OpenNexusCN/rk-linux-6.18.y 产物如下
+
+config-6.18.60-otgfix+
+sha256:d03c85420edc6f3fb98bf8441bae7efcd501a08bf093dfbe87b9f6d0d1dba2cd
+261 KB
+5 minutes ago
+Image-6.18.60-otgfix+
+sha256:c528a02b54f433d9b4c1a8dc56847488b38c621af8c5618b95b75c753bd48dab
+38.8 MB
+5 minutes ago
+rk3399-fmx1-pro-b.dtb
+sha256:edec7e31993ba71b406bc14caff2e52a7d0cb5b070308302f9ec4e017f45881d
+79.7 KB
+5 minutes ago
+rk3399-fmx1-pro-otg.dtb
+sha256:071c143855e326cb8ee63715f580b164ab93df1b27164d1a8d36428635f10a47
+82.1 KB
+5 minutes ago
+rk3399-fmx1-pro.dtb
+sha256:f16d43e686d1182c553a22cba5293bf42ad19ffaf402221dc401e2061f49c8ed
+81.7 KB
+5 minutes ago
+SHA256SUMS
+sha256:3547472ab99c86f2afb42dd887bc6b45cefa347dcbd9665b3cb66e054b32caf6
+534 Bytes
+5 minutes ago
+System.map-6.18.60-otgfix+
+
+再使用下面的产物进行软件部署
+
+one-kvm使用这个项目的产物 取  one-kvm_xxxxxx_arm64.deb 进行安装
+
+https://github.com/zoneBen/One-KVM
+
+one-kvm_0.2.9_amd64.deb
+sha256:ca114cf21c0d747b2e5d8e3a2b163bd2bd8bea2da5666e799a6cbc3b4fb31eac
+26.8 MB
+last week
+one-kvm_0.2.9_amd64.exe
+sha256:b072c49a50689985f1078a60b27e7406b9fd9d91ae49481429c13feee21c453a
+53.3 MB
+last week
+one-kvm_0.2.9_arm64.deb
+sha256:c466844c86e44ec8d656918aa399fa80886d26b1f20134fbae29b2b9f9f8c3e6
+27.5 MB
+last week
+one-kvm_0.2.9_armhf.deb
+sha256:94f4d2dc4a5e0f3141062022bfadb9bee52b7e6df67c0e1156eb7f72fc6ef2af
+26.4 MB
+last week
+
+最后根据板子输出对应的镜像 形如
+Armbian_26.11.0_rockchip_fmx1-pro_noble-onekvm_6.18.59_server_2026.11.02.img.gz

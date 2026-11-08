@@ -1,0 +1,20 @@
+# Build outputs
+/out/
+/work/
+*.img
+*.img.gz
+*.img.xz
+*.img.zst
+*.sha256
+
+# Local overrides
+*.local.conf
+.env
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Editor / OS noise
+.DS_Store
+*.swp

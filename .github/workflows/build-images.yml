@@ -1,0 +1,278 @@
+name: Build One-KVM images
+
+on:
+  workflow_dispatch:
+    inputs:
+      boards:
+        description: "Board IDs (comma separated) or 'all'"
+        required: false
+        default: "all"
+        type: string
+      kernel_release:
+        description: "Kernel release tag (V...) or 'latest'"
+        required: false
+        default: "latest"
+        type: string
+      one_kvm_repo:
+        description: "One-KVM repository (empty = repository default)"
+        required: false
+        default: ""
+        type: string
+      one_kvm_release:
+        description: "One-KVM release tag or 'latest'"
+        required: false
+        default: "latest"
+        type: string
+      one_kvm_wait_minutes:
+        description: "Minutes to wait for a One-KVM release with an arm64 deb"
+        required: false
+        default: "30"
+        type: string
+      compress:
+        description: "Image compression"
+        required: false
+        default: "gz"
+        type: choice
+        options:
+          - gz
+          - xz
+          - zst
+      create_release:
+        description: "Create a GitHub release"
+        required: false
+        default: true
+        type: boolean
+
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-images.yml"
+      - "boards/**"
+      - "scripts/**"
+      - "config/**"
+
+  repository_dispatch:
+    types:
+      - kernel-release
+      - one-kvm-release
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-kvm-build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BOARDS_INPUT: ${{ github.event.inputs.boards || github.event.client_payload.boards || 'all' }}
+  KERNEL_RELEASE_INPUT: ${{ github.event.inputs.kernel_release || github.event.client_payload.kernel_release || 'latest' }}
+  ONE_KVM_REPO_INPUT: ${{ github.event.inputs.one_kvm_repo || github.event.client_payload.one_kvm_repo || '' }}
+  ONE_KVM_RELEASE_INPUT: ${{ github.event.inputs.one_kvm_release || github.event.client_payload.one_kvm_release || 'latest' }}
+  ONE_KVM_WAIT_MINUTES_INPUT: ${{ github.event.inputs.one_kvm_wait_minutes || github.event.client_payload.one_kvm_wait_minutes || '30' }}
+  COMPRESS_INPUT: ${{ github.event.inputs.compress || 'gz' }}
+  CREATE_RELEASE_INPUT: ${{ github.event.inputs.create_release || 'true' }}
+
+jobs:
+  prepare:
+    name: Validate and plan
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      version: ${{ steps.plan.outputs.version }}
+      kernel_tag: ${{ steps.plan.outputs.kernel_tag }}
+      one_kvm_tag: ${{ steps.plan.outputs.one_kvm_tag }}
+      one_kvm_version: ${{ steps.plan.outputs.one_kvm_version }}
+      one_kvm_deb_name: ${{ steps.plan.outputs.one_kvm_deb_name }}
+      one_kvm_deb_url: ${{ steps.plan.outputs.one_kvm_deb_url }}
+      one_kvm_deb_sha256: ${{ steps.plan.outputs.one_kvm_deb_sha256 }}
+      create_release: ${{ steps.plan.outputs.create_release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Offline checks
+        run: bash tests/run-tests.sh
+
+      - name: Build plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/plan-build.sh \
+            --boards "$BOARDS_INPUT" \
+            --kernel-release "$KERNEL_RELEASE_INPUT" \
+            --one-kvm-repo "$ONE_KVM_REPO_INPUT" \
+            --one-kvm-release "$ONE_KVM_RELEASE_INPUT" \
+            --one-kvm-wait-minutes "$ONE_KVM_WAIT_MINUTES_INPUT" \
+            --create-release "$CREATE_RELEASE_INPUT" \
+            --output-dir "$RUNNER_TEMP/plan"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-plan
+          path: ${{ runner.temp }}/plan/plan.json
+          retention-days: 7
+
+  kernel:
+    name: Kernel bundle
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo apt-get clean
+          df -h /
+
+      - name: Install kernel build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu build-essential \
+            bc bison flex libssl-dev libelf-dev kmod cpio rsync xz-utils zstd
+          "${CROSS_COMPILE:-aarch64-linux-gnu-}gcc" --version | head -1
+          make --version | head -1
+
+      - name: Prepare kernel bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091
+          source config/defaults.conf
+          bash scripts/kernel/prepare-kernel.sh \
+            --repo "$KERNEL_REPO" \
+            --release "${{ needs.prepare.outputs.kernel_tag }}" \
+            --tag-pattern "$KERNEL_TAG_PATTERN" \
+            --image-pattern "$KERNEL_IMAGE_PATTERN" \
+            --config-pattern "$KERNEL_CONFIG_PATTERN" \
+            --systemmap-pattern "$KERNEL_SYSTEMMAP_PATTERN" \
+            --dtb-pattern "$KERNEL_DTB_PATTERN" \
+            --modules-pattern "$KERNEL_MODULES_PATTERN" \
+            --git-url "$KERNEL_GIT_URL" \
+            --arch "$KERNEL_ARCH" \
+            --cross-compile "$KERNEL_CROSS_COMPILE" \
+            --output-dir "$RUNNER_TEMP/kernel-bundle" \
+            --jobs "$(nproc)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-bundle
+          path: ${{ runner.temp }}/kernel-bundle
+          retention-days: 14
+          if-no-files-found: error
+
+  build:
+    name: Image ${{ matrix.board }}
+    needs:
+      - prepare
+      - kernel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo apt-get clean
+          df -h /
+
+      - name: Install image build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-user-static binfmt-support u-boot-tools kmod e2fsprogs \
+            fdisk gdisk parted util-linux rsync pigz gzip xz-utils zstd \
+            jq file ca-certificates curl
+          sudo update-binfmts --enable qemu-aarch64 || true
+          sudo systemctl restart systemd-binfmt || true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: kernel-bundle
+          path: ${{ runner.temp }}/kernel-bundle
+
+      - name: Build image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sudo -E env "PATH=$PATH" bash scripts/build-image.sh \
+            --board "${{ matrix.board }}" \
+            --config "${{ matrix.config }}" \
+            --base-image-url "${{ matrix.base_image_url }}" \
+            --base-image-name "${{ matrix.base_image_name }}" \
+            --base-image-sha256 "${{ matrix.base_image_sha256 }}" \
+            --kernel-bundle "$RUNNER_TEMP/kernel-bundle" \
+            --one-kvm-url "${{ needs.prepare.outputs.one_kvm_deb_url }}" \
+            --one-kvm-version "${{ needs.prepare.outputs.one_kvm_version }}" \
+            --one-kvm-sha256 "${{ needs.prepare.outputs.one_kvm_deb_sha256 }}" \
+            --build-version "${{ needs.prepare.outputs.version }}" \
+            --compress "$COMPRESS_INPUT" \
+            --output-dir "$RUNNER_TEMP/out" \
+            --work-dir "$RUNNER_TEMP/work"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.board }}
+          path: |
+            ${{ runner.temp }}/out/*.img.*
+            ${{ runner.temp }}/out/*.sha256
+            ${{ runner.temp }}/out/manifest-*.json
+          retention-days: 14
+          if-no-files-found: error
+
+  release:
+    name: Publish ${{ needs.prepare.outputs.version }}
+    needs:
+      - prepare
+      - build
+    if: needs.prepare.outputs.create_release == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Aggregate checksums
+        run: |
+          set -euo pipefail
+          cd release-assets
+          find . -maxdepth 1 -type f \
+              \( -name '*.img.gz' -o -name '*.img.xz' -o -name '*.img.zst' \) \
+              -print0 \
+            | sort -z \
+            | xargs -0 -r sha256sum \
+            | sed 's| \./| |' > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Generate release notes
+        run: |
+          bash scripts/release/make-release-notes.sh \
+            --dir release-assets \
+            --version "${{ needs.prepare.outputs.version }}" \
+            --repo "$GITHUB_REPOSITORY" >"$RUNNER_TEMP/RELEASE_NOTES.md"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ needs.prepare.outputs.version }}" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "${{ needs.prepare.outputs.version }}" \
+            --notes-file "$RUNNER_TEMP/RELEASE_NOTES.md"
