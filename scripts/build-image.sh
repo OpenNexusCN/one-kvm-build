@@ -46,6 +46,9 @@ One-KVM:
   --one-kvm-tag TAG         Release tag when resolving automatically
   --skip-one-kvm            Do not install One-KVM
 
+Customisation:
+  --apt-packages "pkg ..."  Extra packages installed with apt (also APT_PACKAGES)
+
 Output:
   --build-version V...      Release version (default: V<timestamp>)
   --compress gz|xz|zst      Output compression (default: from board)
@@ -68,6 +71,7 @@ ARG_ONE_KVM_VERSION=""
 ARG_ONE_KVM_SHA=""
 ARG_ONE_KVM_TAG=""
 ARG_SKIP_ONE_KVM="false"
+ARG_APT_PACKAGES=""
 ARG_BUILD_VERSION=""
 ARG_COMPRESS=""
 ARG_OUTPUT_DIR=""
@@ -89,6 +93,7 @@ while [ $# -gt 0 ]; do
         --one-kvm-sha256) ARG_ONE_KVM_SHA="${2:-}"; shift 2 ;;
         --one-kvm-tag) ARG_ONE_KVM_TAG="${2:-}"; shift 2 ;;
         --skip-one-kvm) ARG_SKIP_ONE_KVM="true"; shift ;;
+        --apt-packages) ARG_APT_PACKAGES="${2:-}"; shift 2 ;;
         --build-version) ARG_BUILD_VERSION="${2:-}"; shift 2 ;;
         --compress) ARG_COMPRESS="${2:-}"; shift 2 ;;
         --output-dir) ARG_OUTPUT_DIR="${2:-}"; shift 2 ;;
@@ -341,6 +346,41 @@ install_one_kvm() {
 }
 
 # ---------------------------------------------------------------------------
+# Extra apt packages / Wi-Fi AP
+# ---------------------------------------------------------------------------
+
+install_extra_packages() {
+    local packages="${APT_PACKAGES:-} ${ARG_APT_PACKAGES:-}"
+    if [ "${WIFI_AP_ENABLED:-true}" = "true" ]; then
+        packages+=" ${WIFI_AP_PACKAGES:-hostapd dnsmasq lighttpd iw}"
+    fi
+    bash "${SCRIPT_DIR}/features/apt-install.sh" \
+        --root "$ROOT_MNT" \
+        --packages "$packages" \
+        --recommends "${APT_INSTALL_RECOMMENDS:-false}"
+}
+
+configure_wifi_ap() {
+    if [ "${WIFI_AP_ENABLED:-true}" != "true" ]; then
+        info "Wi-Fi AP configuration disabled"
+        return 0
+    fi
+    bash "${SCRIPT_DIR}/features/wifi-ap.sh" \
+        --root "$ROOT_MNT" \
+        --ssid-prefix "${WIFI_AP_SSID_PREFIX:-OneKVM-}" \
+        --hash-length "${WIFI_AP_HASH_LENGTH:-6}" \
+        --security "${WIFI_AP_SECURITY:-open}" \
+        --password "${WIFI_AP_PASSWORD:-}" \
+        --country "${WIFI_AP_COUNTRY:-CN}" \
+        --channel "${WIFI_AP_CHANNEL:-6}" \
+        --ip "${WIFI_AP_IP:-192.168.4.1}" \
+        --dhcp-start "${WIFI_AP_DHCP_START:-192.168.4.10}" \
+        --dhcp-end "${WIFI_AP_DHCP_END:-192.168.4.100}" \
+        --portal-port "${WIFI_AP_PORTAL_PORT:-8080}" \
+        --interface "${WIFI_AP_INTERFACE:-}"
+}
+
+# ---------------------------------------------------------------------------
 # Metadata / output
 # ---------------------------------------------------------------------------
 
@@ -360,6 +400,12 @@ write_image_manifest() {
         --arg modules_source "$KERNEL_MODULES_SOURCE" \
         --arg one_kvm_version "${ONE_KVM_VERSION:-}" \
         --arg one_kvm_sha "${ONE_KVM_SHA256:-}" \
+        --arg apt_packages "$(printf '%s %s' "${APT_PACKAGES:-}" "${ARG_APT_PACKAGES:-}" | xargs)" \
+        --arg wifi_ap_enabled "${WIFI_AP_ENABLED:-true}" \
+        --arg wifi_ap_prefix "${WIFI_AP_SSID_PREFIX:-OneKVM-}" \
+        --arg wifi_ap_security "${WIFI_AP_SECURITY:-open}" \
+        --arg wifi_ap_ip "${WIFI_AP_IP:-192.168.4.1}" \
+        --arg wifi_ap_portal_port "${WIFI_AP_PORTAL_PORT:-8080}" \
         --arg commit "${GITHUB_SHA:-local}" \
         --arg run "${GITHUB_RUN_ID:-local}" \
         '{board: $board, board_name: $board_name, build_version: $version,
@@ -367,7 +413,11 @@ write_image_manifest() {
           base_image: {name: $base_image, sha256: $base_sha, release: $base_release},
           kernel: {release: $kernel_tag, version: $kernel_version, dtb: $kernel_dtb,
                    modules_source: $modules_source},
-          one_kvm: {version: $one_kvm_version, sha256: $one_kvm_sha}}' \
+          one_kvm: {version: $one_kvm_version, sha256: $one_kvm_sha},
+          apt_packages: $apt_packages,
+          wifi_ap: {enabled: $wifi_ap_enabled, ssid_prefix: $wifi_ap_prefix,
+                    security: $wifi_ap_security, ip: $wifi_ap_ip,
+                    portal_port: $wifi_ap_portal_port}}' \
         >"${ROOT_MNT}/etc/one-kvm-build/build.json"
 }
 
@@ -455,6 +505,14 @@ group_start "Install kernel and boot configuration"
 family_install_kernel
 family_configure_boot
 family_configure_system
+group_end
+
+group_start "Install extra packages and Wi-Fi AP"
+install_extra_packages
+configure_wifi_ap
+group_end
+
+group_start "Regenerate initramfs"
 family_create_initrd
 group_end
 
@@ -478,13 +536,23 @@ jq -n \
     --arg kernel_dtb "$KERNEL_DTB" \
     --arg modules_source "$KERNEL_MODULES_SOURCE" \
     --arg one_kvm_version "${ONE_KVM_VERSION:-}" \
+    --arg apt_packages "$(printf '%s %s' "${APT_PACKAGES:-}" "${ARG_APT_PACKAGES:-}" | xargs)" \
+    --arg wifi_ap_enabled "${WIFI_AP_ENABLED:-true}" \
+    --arg wifi_ap_prefix "${WIFI_AP_SSID_PREFIX:-OneKVM-}" \
+    --arg wifi_ap_security "${WIFI_AP_SECURITY:-open}" \
+    --arg wifi_ap_ip "${WIFI_AP_IP:-192.168.4.1}" \
+    --arg wifi_ap_portal_port "${WIFI_AP_PORTAL_PORT:-8080}" \
     --arg built_at "$(utc_now)" \
     '{board: $board, build_version: $version, built_at: $built_at,
       base_image: {name: $base_image, sha256: $base_sha, release: $base_release,
                    kernel: $base_kernel, edition: $base_edition},
       kernel: {release: $kernel_tag, version: $kernel_version, dtb: $kernel_dtb,
                modules_source: $modules_source},
-      one_kvm: {version: $one_kvm_version}}' \
+      one_kvm: {version: $one_kvm_version},
+      apt_packages: $apt_packages,
+      wifi_ap: {enabled: $wifi_ap_enabled, ssid_prefix: $wifi_ap_prefix,
+                security: $wifi_ap_security, ip: $wifi_ap_ip,
+                portal_port: $wifi_ap_portal_port}}' \
     >"${OUT}/manifest-${BOARD_ID}.json"
 
 family_cleanup
@@ -510,6 +578,8 @@ set_output manifest "${OUT}/manifest-${BOARD_ID}.json"
     echo "- Kernel: \`${KERNEL_VERSION}\` (${KERNEL_RELEASE_TAG})"
     echo "- DTB: \`${KERNEL_DTB}\`"
     echo "- One-KVM: ${ONE_KVM_VERSION:-skipped}"
+    echo "- Wi-Fi AP: ${WIFI_AP_ENABLED:-true} (SSID ${WIFI_AP_SSID_PREFIX:-OneKVM-}<hash>, portal :${WIFI_AP_PORTAL_PORT:-8080})"
+    echo "- Extra apt: ${APT_PACKAGES:-} ${ARG_APT_PACKAGES:-}"
 } >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 if [ "$KEEP_WORK" != "true" ]; then

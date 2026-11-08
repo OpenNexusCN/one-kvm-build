@@ -114,6 +114,67 @@ Not enough space in root filesystem
 One-KVM 的 USB gadget 可能不可用；长期方案是在内核仓库新增 B 板的
 OTG DTS。
 
+## Wi-Fi AP 没有启动
+
+检查：
+
+```bash
+systemctl status onekvm-wifi-ap hostapd dnsmasq lighttpd
+journalctl -u onekvm-wifi-ap -b --no-pager
+dmesg | grep -i brcmfmac
+iw dev
+cat /etc/one-kvm-wifi/runtime.env
+ls /etc/one-kvm-wifi/no-wifi
+```
+
+常见原因：
+
+- 板子没有无线网卡：初始化服务会创建 `/etc/one-kvm-wifi/no-wifi`，
+  hostapd/dnsmasq/lighttpd 的 drop-in 会跳过；这是预期行为。
+- 驱动/firmware 缺失：确认新内核模块里有 `brcmfmac.ko`，且
+  `/lib/firmware/brcm` 下有对应芯片的 firmware。可以通过 `apt_packages`
+  额外安装 `firmware-brcm80211`。
+- 接口被其他工具占用：镜像已经通过 NetworkManager/systemd-networkd 的
+  unmanaged 配置和 wpa_supplicant drop-in 避免冲突；如果手动改过网络配置，
+  检查 `nmcli device status` 和 `systemctl status wpa_supplicant`。
+- hostapd 驱动错误：查看 `journalctl -u hostapd`，确认芯片/驱动支持 AP
+  模式；可以尝试把 `WIFI_AP_INTERFACE` 指定为实际接口。
+
+## 强制门户没有跳转
+
+- 确认 AP 客户端拿到了 192.168.4.x 地址：`ip addr` / DHCP 租约。
+- 在客户端访问 `http://192.168.4.1/`，应返回 302 到
+  `http://192.168.4.1:8080/`；如果失败，检查 lighttpd 是否绑定在
+  `192.168.4.1:80`。
+- `dnsmasq` 必须监听 192.168.4.1:53，且配置了
+  `address=/#/192.168.4.1`；用 `dig @192.168.4.1 example.com` 验证。
+- 强制门户依赖 HTTP/DNS，不拦截 HTTPS；用浏览器打开任意 HTTP 页面，
+  或直接访问 `http://192.168.4.1:8080/`。
+- 如果 One-KVM 改了端口，同步修改 `WIFI_AP_PORTAL_PORT` 并重新构建。
+
+## 忘记 Wi-Fi 密码
+
+WPA2 模式首次启动会生成密码，写入：
+
+```text
+/boot/one-kvm-wifi.txt
+/etc/one-kvm-wifi/password
+```
+
+也可以在串口/SSH 登录后查看。默认是开放网络时没有密码。
+
+## APT 安装失败
+
+- 检查 workflow 的 `apt_packages` 输入和板子 `APT_PACKAGES`：只支持普通
+  包名，不支持 `pkg=version`；空格分隔。
+- 构建日志里的 `apt-get update` 需要 chroot 内可用的 DNS。基础镜像的
+  `/etc/resolv.conf` 是 systemd-resolved 的符号链接，脚本会在安装期间
+  临时替换并在结束后恢复。
+- 如果某个包不存在或源不可用，构建会失败；先在本地/容器里确认
+  `apt-get install -y <包名>` 可用。
+- 安装过程使用 `policy-rc.d` 阻止服务在 chroot 内启动；如果看到
+  “policy-rc.d denied execution”，这是预期行为。
+
 ## GitHub API rate limit
 
 `prepare` 作业使用 `GITHUB_TOKEN`，限额足够。本地运行 `make plan` 或

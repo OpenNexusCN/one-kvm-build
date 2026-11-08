@@ -1,0 +1,15 @@
+[Unit]
+Description=One-KVM Wi-Fi AP and captive portal setup
+Documentation=https://github.com/OpenNexusCN/one-kvm-build
+After=local-fs.target systemd-machine-id-commit.service network.target
+Wants=hostapd.service dnsmasq.service lighttpd.service
+Before=hostapd.service dnsmasq.service lighttpd.service
+ConditionPathExists=/etc/one-kvm-wifi/ap.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/onekvm-ap-init
+
+[Install]
+WantedBy=multi-user.target

@@ -12,7 +12,8 @@
 2. 用 `OpenNexusCN/rk-linux-6.18.y` release 里的 `Image-*` 和
    `rk3399-fmx1-pro-otg.dtb` 替换镜像里的内核与设备树。
 3. 安装 One-KVM release 里的 `one-kvm_*_arm64.deb`（默认
-   `zoneBen/One-KVM`，可用 `ONE_KVM_REPO` 或 workflow 输入覆盖）。
+   `zoneBen/One-KVM`，可用 `ONE_KVM_REPO` 或 workflow 输入覆盖），
+   按需安装额外 apt 包，并配置 Wi-Fi AP/强制门户。
 4. 输出形如
    `Armbian_26.11.0_rockchip_fmx1-pro_noble-onekvm_6.18.60-otgfix+_server_2026.11.02.img.gz`
    的镜像。
@@ -27,7 +28,7 @@ prepare ──> kernel ──> build (matrix: 每个板子一个 job) ──> re
 |---|---|---|
 | `prepare` | 校验板子配置；解析基础镜像、内核 release、One-KVM release；生成 matrix、版本号和发布参数 | `scripts/plan-build.sh` |
 | `kernel` | 下载内核 release 产物；缺少 modules 时从同一源码 tag 和 config 重编译模块；上传 `kernel-bundle` | `scripts/kernel/prepare-kernel.sh`、`scripts/kernel/build-modules.sh` |
-| `build` | 每个板子独立运行：解压基础镜像、挂载、替换内核/DTB/modules、重建 initramfs、安装 One-KVM、应用 components、压缩并校验 | `scripts/build-image.sh`、`scripts/families/rockchip.sh`、`scripts/one-kvm/install-one-kvm.sh` |
+| `build` | 每个板子独立运行：解压基础镜像、挂载、替换内核/DTB/modules、安装 apt 包、配置 Wi-Fi AP/门户、重建 initramfs、安装 One-KVM、应用 components、压缩并校验 | `scripts/build-image.sh`、`scripts/families/rockchip.sh`、`scripts/features/*`、`scripts/one-kvm/install-one-kvm.sh` |
 | `release` | 汇总所有镜像，生成 SHA256SUMS 和 release notes，创建 `V<年月日时分秒>` release | `scripts/release/make-release-notes.sh` |
 
 所有作业共享 `prepare` 解析出的版本号，因此一次构建里的所有板子产物
@@ -73,6 +74,45 @@ U-Boot 的 `boot.scr` 会读取 `armbianEnv.txt` 的 `fdtfile`，加载
 
 initramfs 在 chroot 里用目标 rootfs 的 `update-initramfs -c -k <ver>`
 重建（qemu-user-static + binfmt_misc），保证它和新内核模块匹配。
+
+## Wi-Fi AP 与强制门户
+
+构建时（`scripts/features/wifi-ap.sh`）把以下内容写入镜像：
+
+- `/usr/local/sbin/onekvm-ap-init`：首次启动/每次启动时生成 SSID、写
+  hostapd/dnsmasq/lighttpd 配置、给无线接口分配静态 IP；
+- `onekvm-wifi-ap.service`：oneshot，排在 hostapd/dnsmasq/lighttpd 之前；
+- `/etc/one-kvm-wifi/ap.env`：构建时的参数（前缀、安全模式、IP、端口）；
+- NetworkManager/systemd-networkd 的 unmanaged 配置，以及
+  wpa_supplicant 的条件 drop-in，避免多个网络管理器和 hostapd 抢接口。
+
+首次启动时：
+
+1. `onekvm-ap-init` 找到第一个带 `phy80211` 的接口（默认 `wlan0`），
+   `modprobe brcmfmac`；
+2. 用 `sha256(machine-id + MAC)` 的前 6 位生成 `OneKVM-XXXXXX`；
+3. 写 hostapd 配置（默认开放，可切 WPA2）；
+4. 写 dnsmasq 配置：DHCP 192.168.4.10-100，所有 DNS 解析到 192.168.4.1，
+   DHCP option 114/160 指向门户；
+5. 写 lighttpd 配置：监听 192.168.4.1:80，把所有 HTTP 请求 302 到
+   `http://192.168.4.1:8080/`；
+6. 写 `/boot/one-kvm-wifi.txt` 方便串口/读卡器查看。
+
+AP 客户端只能访问本机；镜像不做 NAT，避免把设备变成开放的上网网关。
+`WIFI_AP_ENABLED=false` 可以关闭整套功能。
+
+## APT 定制
+
+`scripts/features/apt-install.sh` 在 qemu chroot 中运行
+`apt-get update && apt-get install -y`，安装：
+
+- 板子配置的 `APT_PACKAGES`；
+- workflow_dispatch 输入 `apt_packages`；
+- 启用 AP 时的 `WIFI_AP_PACKAGES`（hostapd、dnsmasq、lighttpd、iw）。
+
+安装时临时写入 `/usr/sbin/policy-rc.d`（exit 101），避免 maintainer
+脚本在 chroot 里启动服务；安装完成后恢复。包名有白名单校验，默认
+`--no-install-recommends`。
 
 ## 多板子兼容设计
 

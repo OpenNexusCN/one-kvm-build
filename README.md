@@ -42,7 +42,8 @@ prepare ──> kernel ──> build (matrix: 每个板子一个 job) ──> re
    如果 release 没有 `modules-*.tar.gz`，按同一源码 tag 和 config 重编译
    模块（One-KVM 的 USB gadget 依赖模块）。
 3. **build**：解压基础镜像 → 扩容 rootfs → 挂载 → 替换内核/DTB/modules →
-   重建 initramfs → 安装 One-KVM deb → 应用 components → 压缩校验。
+   安装额外 apt 包 → 配置 Wi-Fi AP/强制门户 → 重建 initramfs →
+   安装 One-KVM deb → 应用 components → 压缩校验。
 4. **release**：汇总所有镜像，生成 release notes 与 SHA256SUMS，
    创建 `V<年月日时分秒>` release。
 
@@ -70,6 +71,7 @@ Actions -> Build One-KVM images -> Run workflow
 | `one_kvm_repo` | 空 | 覆盖 One-KVM 仓库，默认取 `config/defaults.conf` 的 `ONE_KVM_REPO` |
 | `one_kvm_release` | `latest` | One-KVM release tag 或 `latest` |
 | `one_kvm_wait_minutes` | `60` | 等待 One-KVM release 出现 arm64 deb 的分钟数 |
+| `apt_packages` | 空 | 额外安装到镜像里的 apt 包，空格分隔，例如 `vim htop tcpdump` |
 | `compress` | `gz` | `gz` / `xz` / `zst` |
 | `create_release` | `true` | 是否创建 GitHub Releases |
 
@@ -159,8 +161,46 @@ ophub 的 Rockchip 镜像同时提供：
 - release tag 为 `V$(TZ=Asia/Shanghai date +%Y%m%d%H%M%S)`；
 - 一次构建内所有板子共用同一个版本号和同一组内核/One-KVM 输入；
 - 镜像内 `/etc/one-kvm-build/build.json` 记录板子、内核、基础镜像、
-  One-KVM 版本和构建时间；
+  One-KVM 版本、Wi-Fi AP 和额外 apt 包；
 - 基础镜像、内核 release 资产、One-KVM deb 都做 SHA256 校验。
+
+### 6. Wi-Fi AP 与强制门户
+
+镜像首次启动后会尝试把 Wi-Fi 配置成 AP：
+
+- SSID：`OneKVM-` + 6 位大写十六进制 HASH，例如 `OneKVM-3F9A2C`。
+  HASH 由设备 `machine-id` 和 Wi-Fi MAC 做 SHA-256 后取前 6 位生成，
+  首次启动后保存在 `/etc/one-kvm-wifi/ssid`，同一台设备保持稳定。
+- 默认是**开放网络**（便于强制门户）；可通过板子配置改成 WPA2：
+  `WIFI_AP_SECURITY="wpa2"`。如果 `WIFI_AP_PASSWORD` 为空，首次启动会
+  生成随机密码，写入 `/boot/one-kvm-wifi.txt` 和
+  `/etc/one-kvm-wifi/password`。
+- AP 地址默认 `192.168.4.1/24`，DHCP 范围 `192.168.4.10-100`。
+  `dnsmasq` 把所有 DNS 查询都解析到 AP 地址，`lighttpd` 监听 80 端口，
+  把任意 HTTP 请求 302 到 `http://192.168.4.1:8080/`，即 One-KVM Web UI。
+  同时通过 DHCP option 114/160 通告强制门户地址。
+- AP 客户端只能访问本机，不做 NAT/转发，因此不会把设备当成上网网关；
+  这是用于首次配置的本地网络。
+- 依赖包：`hostapd dnsmasq lighttpd iw`，通过 `WIFI_AP_PACKAGES` 配置，
+  `WIFI_AP_ENABLED=false` 可关闭整套功能。
+- 运行文件：
+  - `/usr/local/sbin/onekvm-ap-init`
+  - `onekvm-wifi-ap.service`
+  - `/etc/one-kvm-wifi/ap.env`（构建时写入）
+  - `/etc/one-kvm-wifi/runtime.env`（运行时实际 SSID/IP/门户地址）
+  - `/boot/one-kvm-wifi.txt`（串口/读卡器可见的连接信息）
+- NetworkManager 和 systemd-networkd 会把 Wi-Fi 接口标记为 unmanaged，
+  standalone `wpa_supplicant` 在 AP 配置存在时跳过，避免和 hostapd 抢接口。
+
+### 7. APT 定制安装
+
+- workflow_dispatch 的 `apt_packages` 输入，例如 `vim htop tcpdump`；
+- 板子配置里的 `APT_PACKAGES`（会与输入合并）；
+- 启用 Wi-Fi AP 时自动追加 `WIFI_AP_PACKAGES`；
+- 安装过程在 qemu chroot 中执行 `apt-get update && apt-get install -y`，
+  默认 `--no-install-recommends`，`APT_INSTALL_RECOMMENDS=true` 可打开
+  recommends；
+- 包名会做白名单校验（只允许普通 Debian 包名，不支持 `pkg=version`）。
 
 ## 目录结构
 
@@ -170,12 +210,15 @@ ophub 的 Rockchip 镜像同时提供：
 ├── boards/                              # 板子配置
 ├── components/                          # 板子/平台特殊组件
 ├── config/defaults.conf                 # 全局默认配置
+├── files/wifi-ap/                       # Wi-Fi AP/门户的运行时脚本和 systemd 单元
 ├── scripts/
 │   ├── build-image.sh                   # 单板镜像构建入口
 │   ├── plan-build.sh                    # 解析输入 + 生成 matrix
 │   ├── prepare-matrix.sh
 │   ├── validate-boards.sh
 │   ├── list-boards.sh
+│   ├── features/apt-install.sh          # chroot 内安装额外 apt 包
+│   ├── features/wifi-ap.sh              # 写入 AP/门户配置
 │   ├── families/rockchip.sh             # Rockchip 镜像内部操作
 │   ├── kernel/                          # 内核 bundle 与模块重编译
 │   ├── one-kvm/                         # One-KVM release 解析与安装
@@ -198,6 +241,9 @@ ophub 的 Rockchip 镜像同时提供：
 http://<设备IP>:8080
 ```
 
+如果 Wi-Fi AP 已启动，连接 `OneKVM-XXXXXX` 后浏览器会被强制门户引导到
+`http://192.168.4.1:8080/`。
+
 Armbian 默认账号 `root`，默认密码 `1234`（首次登录要求修改）。
 
 ## 烧录
@@ -216,6 +262,13 @@ Armbian 默认账号 `root`，默认密码 `1234`（首次登录要求修改）�
 - GitHub release 资产体积较大（每个镜像约 1 GB 级），构建和发布耗时较长。
 - `push` 触发只针对构建脚本/配置的变更；日常构建建议手动
   `workflow_dispatch`，避免无关提交触发大镜像构建。
+- Wi-Fi AP 默认开放，只用于本地首次配置，不做 NAT/上网转发；长期使用
+  建议改成 WPA2 或在 One-KVM 中设置访问认证。
+- AP 功能依赖板子的 Wi-Fi 驱动/firmware；FMX1 使用 brcmfmac，基础镜像
+  已带相关 firmware。其他板子如果没有 Wi-Fi 或驱动不兼容，初始化服务会
+  记录日志并跳过 AP。
+- 强制门户依赖 DNS + HTTP 重定向，不拦截 HTTPS；客户端用浏览器打开任意
+  HTTP 页面即可触发。
 
 ## 参考
 

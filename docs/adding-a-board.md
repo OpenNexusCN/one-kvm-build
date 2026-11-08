@@ -57,6 +57,14 @@ ONE_KVM_ENABLED="true"
 | `ONE_KVM_ENABLED` | `true` | 是否安装 One-KVM |
 | `ONE_KVM_REPO` | `zoneBen/One-KVM` | One-KVM release 仓库 |
 | `ONE_KVM_ASSET_PATTERN` | `one-kvm_*_arm64.deb` | deb 资产匹配 |
+| `APT_PACKAGES` | 空 | 额外安装的 apt 包（空格分隔） |
+| `WIFI_AP_ENABLED` | `true` | 是否配置 Wi-Fi AP/强制门户 |
+| `WIFI_AP_SSID_PREFIX` | `OneKVM-` | SSID 前缀，后面自动追加 6 位设备 HASH |
+| `WIFI_AP_SECURITY` | `open` | `open` 或 `wpa2` |
+| `WIFI_AP_PASSWORD` | 空 | WPA2 密码；空则首次启动生成 |
+| `WIFI_AP_IP` | `192.168.4.1` | AP 地址 |
+| `WIFI_AP_PORTAL_PORT` | `8080` | 门户重定向的 One-KVM 端口 |
+| `WIFI_AP_PACKAGES` | `hostapd dnsmasq lighttpd iw` | AP 依赖包 |
 | `OUTPUT_NAME_TEMPLATE` | 见 defaults | 输出文件名模板 |
 | `ENABLED` | `true` | `false` 时不出现在 `--boards all` |
 
@@ -71,6 +79,24 @@ components/<board-id>/
 ```
 
 参考 `components/README.md`。
+
+## 4.1 Wi-Fi AP 与 APT 定制
+
+新板子如果也有无线网卡：
+
+- 确认内核配置启用了对应的 `cfg80211`/`mac80211` 驱动（FMX1 是
+  `CONFIG_BRCMFMAC=m`），并确认基础镜像的 `/lib/firmware` 带对应 firmware；
+- 保持 `WIFI_AP_ENABLED=true` 即可自动安装 `hostapd dnsmasq lighttpd iw`
+  并写入 AP/门户配置；
+- 如果无线接口不是 `wlan0`，可以留空 `WIFI_AP_INTERFACE` 让首次启动自动
+  探测，或写死接口名；
+- 没有无线网卡的板子设置 `WIFI_AP_ENABLED=false`，或让它自动跳过。
+
+额外工具通过 `APT_PACKAGES` 或 workflow 的 `apt_packages` 输入安装，例如：
+
+```bash
+APT_PACKAGES="vim htop tcpdump"
+```
 
 ## 5. 校验并构建
 

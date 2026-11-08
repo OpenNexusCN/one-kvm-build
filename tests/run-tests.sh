@@ -23,6 +23,12 @@ check() {
 check "shell syntax" bash -c '
     set -e
     for f in $(find scripts -type f -name "*.sh"); do bash -n "$f"; done
+    bash -n files/wifi-ap/onekvm-ap-init.sh
+'
+check "wifi-ap templates" bash -c '
+    test -f files/wifi-ap/onekvm-wifi-ap.service
+    test -f files/wifi-ap/unit-after.conf
+    test -f files/wifi-ap/networkmanager-unmanaged.conf
 '
 check "python syntax" python3 -m py_compile scripts/lib/release_tool.py scripts/lib/extlinux_patch.py
 check "board validation" bash scripts/validate-boards.sh
@@ -94,6 +100,25 @@ python3 -I scripts/lib/extlinux_patch.py \
     --initrd /uInitrd
 check "extlinux patch" grep -q 'FDT /dtb/rockchip/rk3399-new.dtb' "${tmp}/extlinux.conf"
 check "extlinux backup" test -f "${tmp}/extlinux.conf.orig"
+
+mkdir -p "${tmp}/ap-root"
+check "wifi-ap build install" bash -c "
+    bash scripts/features/wifi-ap.sh \
+        --root '${tmp}/ap-root' \
+        --ssid-prefix OneKVM- \
+        --hash-length 6 \
+        --security open \
+        --country CN \
+        --channel 6 \
+        --ip 192.168.4.1 \
+        --portal-port 8080
+    test -f '${tmp}/ap-root/etc/one-kvm-wifi/ap.env'
+    test -x '${tmp}/ap-root/usr/local/sbin/onekvm-ap-init'
+    grep -q 'OneKVM-' '${tmp}/ap-root/etc/one-kvm-wifi/ap.env'
+"
+check "wifi-ap rejects bad security" bash -c "
+    ! bash scripts/features/wifi-ap.sh --root '${tmp}/ap-root' --security nope >/dev/null 2>&1
+"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

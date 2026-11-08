@@ -28,6 +28,11 @@ on:
         required: false
         default: "60"
         type: string
+      apt_packages:
+        description: "Extra apt packages installed in the image (space separated)"
+        required: false
+        default: ""
+        type: string
       compress:
         description: "Image compression"
         required: false
@@ -70,6 +75,7 @@ env:
   ONE_KVM_REPO_INPUT: ${{ github.event.inputs.one_kvm_repo || github.event.client_payload.one_kvm_repo || '' }}
   ONE_KVM_RELEASE_INPUT: ${{ github.event.inputs.one_kvm_release || github.event.client_payload.one_kvm_release || 'latest' }}
   ONE_KVM_WAIT_MINUTES_INPUT: ${{ github.event.inputs.one_kvm_wait_minutes || github.event.client_payload.one_kvm_wait_minutes || '60' }}
+  APT_PACKAGES_INPUT: ${{ github.event.inputs.apt_packages || github.event.client_payload.apt_packages || '' }}
   COMPRESS_INPUT: ${{ github.event.inputs.compress || 'gz' }}
   CREATE_RELEASE_INPUT: ${{ github.event.inputs.create_release || 'true' }}
 
@@ -103,6 +109,7 @@ jobs:
             echo "- one_kvm_repo: \`${ONE_KVM_REPO_INPUT:-<empty>}\`"
             echo "- one_kvm_release: \`${ONE_KVM_RELEASE_INPUT:-<empty>}\`"
             echo "- one_kvm_wait_minutes: \`${ONE_KVM_WAIT_MINUTES_INPUT:-<empty>}\`"
+            echo "- apt_packages: \`${APT_PACKAGES_INPUT:-<empty>}\`"
             echo "- compress: \`${COMPRESS_INPUT:-<empty>}\`"
             echo "- create_release: \`${CREATE_RELEASE_INPUT:-<empty>}\`"
           } >>"$GITHUB_STEP_SUMMARY"
@@ -252,6 +259,7 @@ jobs:
             --one-kvm-url "${{ needs.prepare.outputs.one_kvm_deb_url }}" \
             --one-kvm-version "${{ needs.prepare.outputs.one_kvm_version }}" \
             --one-kvm-sha256 "${{ needs.prepare.outputs.one_kvm_deb_sha256 }}" \
+            --apt-packages "$APT_PACKAGES_INPUT" \
             --build-version "${{ needs.prepare.outputs.version }}" \
             --compress "$COMPRESS_INPUT" \
             --output-dir "$RUNNER_TEMP/out" \
