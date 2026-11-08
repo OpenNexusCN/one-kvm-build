@@ -25,11 +25,14 @@ Release v260125 provides 0.1.x, older than 0.2.9; waiting
 No mofeng-git/One-KVM release (latest) with one-kvm_*_arm64.deb >= 0.2.9
 ```
 
-构建默认使用 `mofeng-git/One-KVM`（上游 v261101 / 0.2.9），并要求
-`ONE_KVM_MIN_VERSION=0.2.9`，会跳过旧版本。`zoneBen/One-KVM` fork 当前的
-新 release 只提供 `one-kvm-*-unknown-linux-gnu.tar.gz`，没有 deb；如果要把
-构建切到该 fork，需要先在该 fork 产出 `one-kvm_*_arm64.deb`，再通过
-workflow 的 `one_kvm_repo` 输入指定。
+构建默认使用 `zoneBen/One-KVM`，要求 `ONE_KVM_MIN_VERSION=0.2.9`。该 fork
+的 CI 会先上传 tar.gz，再上传 deb；构建计划会轮询等待
+`one-kvm_*_arm64.deb` 出现（`one_kvm_wait_minutes`，默认 60 分钟）。
+如果该 release 暂时只有 tar.gz，可以：
+
+- 等 deb 上传完成后重跑；
+- 或者把 workflow 的 `one_kvm_repo` 设为 `mofeng-git/One-KVM`，使用上游
+  0.2.9 deb。
 
 ## 内核 release 没有 modules
 

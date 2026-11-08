@@ -12,7 +12,7 @@
 2. 用 `OpenNexusCN/rk-linux-6.18.y` release 里的 `Image-*` 和
    `rk3399-fmx1-pro-otg.dtb` 替换镜像里的内核与设备树。
 3. 安装 One-KVM release 里的 `one-kvm_*_arm64.deb`（默认
-   `mofeng-git/One-KVM`，可用 `ONE_KVM_REPO` 或 workflow 输入覆盖）。
+   `zoneBen/One-KVM`，可用 `ONE_KVM_REPO` 或 workflow 输入覆盖）。
 4. 输出形如
    `Armbian_26.11.0_rockchip_fmx1-pro_noble-onekvm_6.18.60-otgfix+_server_2026.11.02.img.gz`
    的镜像。

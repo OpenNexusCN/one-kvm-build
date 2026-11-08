@@ -60,7 +60,7 @@ KERNEL_RELEASE_IN="${KERNEL_RELEASE_IN:-latest}"
 ONE_KVM_RELEASE_IN="${ONE_KVM_RELEASE_IN:-latest}"
 if [ -z "$ONE_KVM_WAIT_MINUTES" ]; then
     if [ -n "${GITHUB_ACTIONS:-}" ]; then
-        ONE_KVM_WAIT_MINUTES="30"
+        ONE_KVM_WAIT_MINUTES="60"
     else
         ONE_KVM_WAIT_MINUTES="0"
     fi

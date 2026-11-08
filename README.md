@@ -69,7 +69,7 @@ Actions -> Build One-KVM images -> Run workflow
 | `kernel_release` | `latest` | 内核 release tag（`V...`）或 `latest` |
 | `one_kvm_repo` | 空 | 覆盖 One-KVM 仓库，默认取 `config/defaults.conf` 的 `ONE_KVM_REPO` |
 | `one_kvm_release` | `latest` | One-KVM release tag 或 `latest` |
-| `one_kvm_wait_minutes` | `30` | 等待 One-KVM release 出现 arm64 deb 的分钟数 |
+| `one_kvm_wait_minutes` | `60` | 等待 One-KVM release 出现 arm64 deb 的分钟数 |
 | `compress` | `gz` | `gz` / `xz` / `zst` |
 | `create_release` | `true` | 是否创建 GitHub Releases |
 
@@ -188,11 +188,11 @@ ophub 的 Rockchip 镜像同时提供：
 
 ## One-KVM
 
-镜像会安装 `mofeng-git/One-KVM` release 里的 `one-kvm_*_arm64.deb`
+镜像会安装 `zoneBen/One-KVM` release 里的 `one-kvm_*_arm64.deb`
 （默认要求 >= `ONE_KVM_MIN_VERSION`，即 0.2.9），并启用
-`one-kvm.service`。`流程.txt` 里引用的 `zoneBen/One-KVM` fork 当前 release
-只提供二进制 tar.gz、没有 deb；如果该 fork 以后提供 deb，可以通过
-workflow 的 `one_kvm_repo` 输入切换。首次启动后访问：
+`one-kvm.service`。该 fork 的 release 会同时包含 deb 和 tar.gz，构建计划
+会等待 arm64 deb 出现；如果暂时只想用上游包，可以把 workflow 的
+`one_kvm_repo` 设为 `mofeng-git/One-KVM`。首次启动后访问：
 
 ```text
 http://<设备IP>:8080
