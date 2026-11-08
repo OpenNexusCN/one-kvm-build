@@ -55,7 +55,7 @@ ONE_KVM_ENABLED="true"
 | `IMAGE_EXTRA_MB` | `1024` | 构建时给 rootfs 扩容的 MiB 数 |
 | `PRUNE_OLD_KERNEL` | `false` | 是否删除基础镜像自带内核 |
 | `ONE_KVM_ENABLED` | `true` | 是否安装 One-KVM |
-| `ONE_KVM_REPO` | `zoneBen/One-KVM` | One-KVM release 仓库 |
+| `ONE_KVM_REPO` | `mofeng-git/One-KVM` | One-KVM release 仓库 |
 | `ONE_KVM_ASSET_PATTERN` | `one-kvm_*_arm64.deb` | deb 资产匹配 |
 | `OUTPUT_NAME_TEMPLATE` | 见 defaults | 输出文件名模板 |
 | `ENABLED` | `true` | `false` 时不出现在 `--boards all` |

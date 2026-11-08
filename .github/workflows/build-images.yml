@@ -62,7 +62,7 @@ permissions:
 
 concurrency:
   group: one-kvm-build-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   BOARDS_INPUT: ${{ github.event.inputs.boards || github.event.client_payload.boards || 'all' }}

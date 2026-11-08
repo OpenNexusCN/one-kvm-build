@@ -5,7 +5,7 @@
 现象：
 
 ```text
-No zoneBen/One-KVM release (latest) with asset matching one-kvm_*_arm64.deb
+No mofeng-git/One-KVM release (latest) with asset matching one-kvm_*_arm64.deb
 ```
 
 原因：One-KVM 的 release 还在构建，或者最新 release 没有 arm64 deb。
@@ -22,13 +22,14 @@ No zoneBen/One-KVM release (latest) with asset matching one-kvm_*_arm64.deb
 
 ```text
 Release v260125 provides 0.1.x, older than 0.2.9; waiting
-No zoneBen/One-KVM release (latest) with one-kvm_*_arm64.deb >= 0.2.9
+No mofeng-git/One-KVM release (latest) with one-kvm_*_arm64.deb >= 0.2.9
 ```
 
-`zoneBen/One-KVM` 上仍有旧的 Python 版本 release。构建默认要求
-`ONE_KVM_MIN_VERSION=0.2.9`，会跳过这些旧版本。等新的 Rust 0.2.9
-release 构建完成后重跑，或者在 workflow 里把 `one_kvm_repo` 设为
-`mofeng-git/One-KVM`（上游已有 v261101 / 0.2.9）。
+构建默认使用 `mofeng-git/One-KVM`（上游 v261101 / 0.2.9），并要求
+`ONE_KVM_MIN_VERSION=0.2.9`，会跳过旧版本。`zoneBen/One-KVM` fork 当前的
+新 release 只提供 `one-kvm-*-unknown-linux-gnu.tar.gz`，没有 deb；如果要把
+构建切到该 fork，需要先在该 fork 产出 `one-kvm_*_arm64.deb`，再通过
+workflow 的 `one_kvm_repo` 输入指定。
 
 ## 内核 release 没有 modules
 

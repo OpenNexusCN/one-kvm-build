@@ -17,7 +17,7 @@ usage() {
 Usage: resolve-one-kvm.sh [options]
 
 Options:
-  --repo OWNER/REPO        Default: zoneBen/One-KVM
+  --repo OWNER/REPO        Default: mofeng-git/One-KVM
   --release TAG|latest     Default: latest
   --asset-pattern GLOB     Default: one-kvm_*_arm64.deb
   --min-version VERSION    Ignore releases older than this (e.g. 0.2.9)
@@ -26,7 +26,7 @@ Options:
 EOF
 }
 
-REPO="zoneBen/One-KVM"
+REPO="mofeng-git/One-KVM"
 RELEASE="latest"
 ASSET_PATTERN="one-kvm_*_arm64.deb"
 MIN_VERSION=""
@@ -47,7 +47,7 @@ while [ $# -gt 0 ]; do
 done
 
 require_cmd jq python3
-REPO="${REPO:-zoneBen/One-KVM}"
+REPO="${REPO:-mofeng-git/One-KVM}"
 RELEASE="${RELEASE:-latest}"
 ASSET_PATTERN="${ASSET_PATTERN:-one-kvm_*_arm64.deb}"
 WAIT_SECONDS="${WAIT_SECONDS:-0}"

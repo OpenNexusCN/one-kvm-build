@@ -188,10 +188,11 @@ ophub 的 Rockchip 镜像同时提供：
 
 ## One-KVM
 
-镜像会安装 `zoneBen/One-KVM` release 里的 `one-kvm_*_arm64.deb`，
-并启用 `one-kvm.service`。默认忽略低于 `ONE_KVM_MIN_VERSION`（0.2.9）的旧
-release；如果 zoneBen fork 还没有 0.2.9 的 arm64 deb，可以在 workflow
-里把 `one_kvm_repo` 设为 `mofeng-git/One-KVM`。首次启动后访问：
+镜像会安装 `mofeng-git/One-KVM` release 里的 `one-kvm_*_arm64.deb`
+（默认要求 >= `ONE_KVM_MIN_VERSION`，即 0.2.9），并启用
+`one-kvm.service`。`流程.txt` 里引用的 `zoneBen/One-KVM` fork 当前 release
+只提供二进制 tar.gz、没有 deb；如果该 fork 以后提供 deb，可以通过
+workflow 的 `one_kvm_repo` 输入切换。首次启动后访问：
 
 ```text
 http://<设备IP>:8080
