@@ -62,7 +62,7 @@ ONE_KVM_ENABLED="true"
 | `WIFI_AP_SSID_PREFIX` | `OneKVM-` | SSID 前缀，后面自动追加 6 位设备 HASH |
 | `WIFI_AP_SECURITY` | `open` | `open` 或 `wpa2` |
 | `WIFI_AP_PASSWORD` | 空 | WPA2 密码；空则首次启动生成 |
-| `WIFI_AP_IP` | `192.168.4.1` | AP 地址 |
+| `WIFI_AP_IP` | `10.42.0.1` | AP 地址 |
 | `WIFI_AP_PORTAL_PORT` | `8080` | 门户重定向的 One-KVM 端口 |
 | `WIFI_AP_PACKAGES` | `hostapd dnsmasq lighttpd iw` | AP 依赖包 |
 | `OUTPUT_NAME_TEMPLATE` | 见 defaults | 输出文件名模板 |

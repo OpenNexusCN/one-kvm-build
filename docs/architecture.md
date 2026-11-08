@@ -92,10 +92,10 @@ initramfs 在 chroot 里用目标 rootfs 的 `update-initramfs -c -k <ver>`
    `modprobe brcmfmac`；
 2. 用 `sha256(machine-id + MAC)` 的前 6 位生成 `OneKVM-XXXXXX`；
 3. 写 hostapd 配置（默认开放，可切 WPA2）；
-4. 写 dnsmasq 配置：DHCP 192.168.4.10-100，所有 DNS 解析到 192.168.4.1，
+4. 写 dnsmasq 配置：DHCP 10.42.0.10-100，所有 DNS 解析到 10.42.0.1，
    DHCP option 114/160 指向门户；
-5. 写 lighttpd 配置：监听 192.168.4.1:80，把所有 HTTP 请求 302 到
-   `http://192.168.4.1:8080/`；
+5. 写 lighttpd 配置：监听 10.42.0.1:80，把所有 HTTP 请求 302 到
+   `http://10.42.0.1:8080/`；
 6. 写 `/boot/one-kvm-wifi.txt` 方便串口/读卡器查看。
 
 AP 客户端只能访问本机；镜像不做 NAT，避免把设备变成开放的上网网关。

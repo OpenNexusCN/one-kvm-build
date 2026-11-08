@@ -110,7 +110,7 @@ check "wifi-ap build install" bash -c "
         --security open \
         --country CN \
         --channel 6 \
-        --ip 192.168.4.1 \
+        --ip 10.42.0.1 \
         --portal-port 8080
     test -f '${tmp}/ap-root/etc/one-kvm-wifi/ap.env'
     test -x '${tmp}/ap-root/usr/local/sbin/onekvm-ap-init'

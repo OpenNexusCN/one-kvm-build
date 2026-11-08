@@ -19,9 +19,9 @@ Options:
   --password PASS           Required for wpa2 unless generated at first boot
   --country CC              Default: CN
   --channel N               Default: 6
-  --ip ADDRESS              Default: 192.168.4.1
-  --dhcp-start ADDRESS      Default: 192.168.4.10
-  --dhcp-end ADDRESS        Default: 192.168.4.100
+  --ip ADDRESS              Default: 10.42.0.1
+  --dhcp-start ADDRESS      Default: 10.42.0.10
+  --dhcp-end ADDRESS        Default: 10.42.0.100
   --portal-port PORT        Default: 8080
   --interface NAME          Empty = auto-detect at first boot
 EOF
@@ -34,9 +34,9 @@ SECURITY="open"
 PASSWORD=""
 COUNTRY="CN"
 CHANNEL="6"
-AP_IP="192.168.4.1"
-DHCP_START="192.168.4.10"
-DHCP_END="192.168.4.100"
+AP_IP="10.42.0.1"
+DHCP_START="10.42.0.10"
+DHCP_END="10.42.0.100"
 PORTAL_PORT="8080"
 INTERFACE=""
 
@@ -72,9 +72,13 @@ esac
     || die "--hash-length must be between 4 and 12"
 [[ "$CHANNEL" =~ ^[0-9]+$ ]] || die "--channel must be an integer"
 [[ "$PORTAL_PORT" =~ ^[0-9]+$ ]] || die "--portal-port must be an integer"
-[[ "$AP_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "--ip must be an IPv4 address"
+[[ "$AP_IP" =~ ^10\.[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || die "--ip must be in 10.0.0.0/8 to avoid LAN conflicts"
 [[ "$DHCP_START" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "--dhcp-start must be an IPv4 address"
 [[ "$DHCP_END" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "--dhcp-end must be an IPv4 address"
+ap_prefix="${AP_IP%.*}"
+[[ "$DHCP_START" == "${ap_prefix}."* ]] || die "--dhcp-start must be in the AP subnet"
+[[ "$DHCP_END" == "${ap_prefix}."* ]] || die "--dhcp-end must be in the AP subnet"
 [[ "$INTERFACE" =~ ^[a-zA-Z0-9_.:-]*$ ]] || die "--interface contains invalid characters"
 [[ "$SSID_PREFIX" =~ ^[A-Za-z0-9_-]+$ ]] || die "--ssid-prefix contains invalid characters"
 if [ "$SECURITY" = "wpa2" ] && [ -n "$PASSWORD" ]; then

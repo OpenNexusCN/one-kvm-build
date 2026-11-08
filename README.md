@@ -171,13 +171,13 @@ ophub 的 Rockchip 镜像同时提供：
 - SSID：`OneKVM-` + 6 位大写十六进制 HASH，例如 `OneKVM-3F9A2C`。
   HASH 由设备 `machine-id` 和 Wi-Fi MAC 做 SHA-256 后取前 6 位生成，
   首次启动后保存在 `/etc/one-kvm-wifi/ssid`，同一台设备保持稳定。
-- 默认是**开放网络**（便于强制门户）；可通过板子配置改成 WPA2：
-  `WIFI_AP_SECURITY="wpa2"`。如果 `WIFI_AP_PASSWORD` 为空，首次启动会
-  生成随机密码，写入 `/boot/one-kvm-wifi.txt` 和
+- 默认是**开放网络、密码为空**（便于强制门户）；可通过板子配置改成
+  WPA2：`WIFI_AP_SECURITY="wpa2"`。如果 WPA2 模式下 `WIFI_AP_PASSWORD`
+  为空，首次启动会生成随机密码，写入 `/boot/one-kvm-wifi.txt` 和
   `/etc/one-kvm-wifi/password`。
-- AP 地址默认 `192.168.4.1/24`，DHCP 范围 `192.168.4.10-100`。
+- AP 地址默认 `10.42.0.1/24`，DHCP 范围 `10.42.0.10-100`。
   `dnsmasq` 把所有 DNS 查询都解析到 AP 地址，`lighttpd` 监听 80 端口，
-  把任意 HTTP 请求 302 到 `http://192.168.4.1:8080/`，即 One-KVM Web UI。
+  把任意 HTTP 请求 302 到 `http://10.42.0.1:8080/`，即 One-KVM Web UI。
   同时通过 DHCP option 114/160 通告强制门户地址。
 - AP 客户端只能访问本机，不做 NAT/转发，因此不会把设备当成上网网关；
   这是用于首次配置的本地网络。
@@ -242,7 +242,7 @@ http://<设备IP>:8080
 ```
 
 如果 Wi-Fi AP 已启动，连接 `OneKVM-XXXXXX` 后浏览器会被强制门户引导到
-`http://192.168.4.1:8080/`。
+`http://10.42.0.1:8080/`。
 
 Armbian 默认账号 `root`，默认密码 `1234`（首次登录要求修改）。
 

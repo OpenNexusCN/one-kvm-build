@@ -373,9 +373,9 @@ configure_wifi_ap() {
         --password "${WIFI_AP_PASSWORD:-}" \
         --country "${WIFI_AP_COUNTRY:-CN}" \
         --channel "${WIFI_AP_CHANNEL:-6}" \
-        --ip "${WIFI_AP_IP:-192.168.4.1}" \
-        --dhcp-start "${WIFI_AP_DHCP_START:-192.168.4.10}" \
-        --dhcp-end "${WIFI_AP_DHCP_END:-192.168.4.100}" \
+        --ip "${WIFI_AP_IP:-10.42.0.1}" \
+        --dhcp-start "${WIFI_AP_DHCP_START:-10.42.0.10}" \
+        --dhcp-end "${WIFI_AP_DHCP_END:-10.42.0.100}" \
         --portal-port "${WIFI_AP_PORTAL_PORT:-8080}" \
         --interface "${WIFI_AP_INTERFACE:-}"
 }
@@ -404,7 +404,7 @@ write_image_manifest() {
         --arg wifi_ap_enabled "${WIFI_AP_ENABLED:-true}" \
         --arg wifi_ap_prefix "${WIFI_AP_SSID_PREFIX:-OneKVM-}" \
         --arg wifi_ap_security "${WIFI_AP_SECURITY:-open}" \
-        --arg wifi_ap_ip "${WIFI_AP_IP:-192.168.4.1}" \
+        --arg wifi_ap_ip "${WIFI_AP_IP:-10.42.0.1}" \
         --arg wifi_ap_portal_port "${WIFI_AP_PORTAL_PORT:-8080}" \
         --arg commit "${GITHUB_SHA:-local}" \
         --arg run "${GITHUB_RUN_ID:-local}" \
@@ -540,7 +540,7 @@ jq -n \
     --arg wifi_ap_enabled "${WIFI_AP_ENABLED:-true}" \
     --arg wifi_ap_prefix "${WIFI_AP_SSID_PREFIX:-OneKVM-}" \
     --arg wifi_ap_security "${WIFI_AP_SECURITY:-open}" \
-    --arg wifi_ap_ip "${WIFI_AP_IP:-192.168.4.1}" \
+    --arg wifi_ap_ip "${WIFI_AP_IP:-10.42.0.1}" \
     --arg wifi_ap_portal_port "${WIFI_AP_PORTAL_PORT:-8080}" \
     --arg built_at "$(utc_now)" \
     '{board: $board, build_version: $version, built_at: $built_at,
