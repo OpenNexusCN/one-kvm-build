@@ -215,6 +215,24 @@ WPA2 模式首次启动会生成密码，写入：
 - 安装过程使用 `policy-rc.d` 阻止服务在 chroot 内启动；如果看到
   “policy-rc.d denied execution”，这是预期行为。
 
+## 构建计划失败：基础镜像资产有歧义
+
+现象：
+
+```text
+Cannot select base image asset Armbian_*_rockchip_fmx1-pro_noble_*_server_*.img.gz
+asset pattern 'Armbian_*_rockchip_fmx1-pro_noble_*_server_*.img.gz' is ambiguous
+in release 'Armbian_noble_arm64_server_2026.11': ...6.18.59..., ...6.18.63...
+```
+
+原因：上游在同一个基础镜像 release 里追加了刷新后的镜像（例如 2026-11-14
+增加的 6.18.63 版本），板子配置的 asset 通配符同时命中多个文件。
+
+处理：板子配置里的 `BASE_IMAGE_SHA256` 就是目标镜像的摘要，解析器会用它
+在匹配项中按 asset `digest` 精确选择。如果仍然失败，检查该 SHA256 是否
+等于 release 中某个 asset 的 `digest`，或者把
+`BASE_IMAGE_ASSET_PATTERN` 收窄到具体文件名。
+
 ## GitHub API rate limit
 
 `prepare` 作业使用 `GITHUB_TOKEN`，限额足够。本地运行 `make plan` 或

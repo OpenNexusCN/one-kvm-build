@@ -56,6 +56,8 @@ cat >"${tmp}/releases.json" <<'JSON'
       {"name": "Image-6.18.60-otgfix+", "browser_download_url": "https://example.invalid/Image", "digest": "sha256:aa"},
       {"name": "config-6.18.60-otgfix+", "browser_download_url": "https://example.invalid/config", "digest": "sha256:bb"},
       {"name": "rk3399-fmx1-pro-otg.dtb", "browser_download_url": "https://example.invalid/dtb", "digest": "sha256:cc"},
+      {"name": "Armbian_26.11.0_rockchip_test_noble_6.18.59_server_2026.11.02.img.gz", "browser_download_url": "https://example.invalid/base-old", "digest": "sha256:aaaa"},
+      {"name": "Armbian_26.11.0_rockchip_test_noble_6.18.63_server_2026.11.14.img.gz", "browser_download_url": "https://example.invalid/base-new", "digest": "sha256:bbbb"},
       {"name": "SHA256SUMS", "browser_download_url": "https://example.invalid/sums", "digest": null}
     ]
   },
@@ -86,6 +88,17 @@ check "asset selection" bash -c "
 check "ambiguous asset rejected" bash -c "
     ! jq '.[0]' '${tmp}/releases.json' \
     | python3 -I scripts/lib/release_tool.py select-asset --pattern '*' >/dev/null 2>&1
+"
+check "asset selection by digest" bash -c "
+    jq '.[0]' '${tmp}/releases.json' \
+    | python3 -I scripts/lib/release_tool.py select-asset \
+        --pattern 'Armbian_*' --sha256 'sha256:bbbb' \
+    | jq -e '.name == \"Armbian_26.11.0_rockchip_test_noble_6.18.63_server_2026.11.14.img.gz\"' >/dev/null
+"
+check "unknown digest rejected" bash -c "
+    ! jq '.[0]' '${tmp}/releases.json' \
+    | python3 -I scripts/lib/release_tool.py select-asset \
+        --pattern 'Armbian_*' --sha256 'sha256:deadbeef' >/dev/null 2>&1
 "
 
 cat >"${tmp}/extlinux.conf" <<'EOF'

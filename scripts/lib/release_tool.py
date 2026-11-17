@@ -10,6 +10,10 @@ select-latest   input: JSON array of releases; output: first matching release
 select-release  input: JSON object of one release; output: validated release
 select-asset    input: JSON object of one release; output: first matching asset
 
+Asset selection can be disambiguated with a pinned SHA-256 digest: upstream
+releases sometimes gain refreshed images with the same name pattern, and
+the board config already pins the intended digest.
+
 Matching uses shell-style globs (fnmatch), not regular expressions.
 Run with `python3 -I` so the interpreter ignores modules from the CWD.
 """
@@ -34,7 +38,13 @@ def _validate_release(release: dict[str, Any], requires: list[str]) -> bool:
     )
 
 
-def _require_exact_asset(release: dict[str, Any], pattern: str) -> dict[str, Any]:
+def _normalize_digest(value: str | None) -> str:
+    return (value or "").strip().lower().removeprefix("sha256:")
+
+
+def _require_exact_asset(
+    release: dict[str, Any], pattern: str, sha256: str = ""
+) -> dict[str, Any]:
     matches = [
         asset
         for asset in release.get("assets", [])
@@ -42,6 +52,18 @@ def _require_exact_asset(release: dict[str, Any], pattern: str) -> dict[str, Any
     ]
     if not matches:
         raise LookupError(f"no asset matching {pattern!r} in release {release.get('tag_name')!r}")
+    if sha256:
+        expected = _normalize_digest(sha256)
+        matches = [
+            asset
+            for asset in matches
+            if _normalize_digest(asset.get("digest")) == expected
+        ]
+        if not matches:
+            raise LookupError(
+                f"no asset matching {pattern!r} with sha256 {expected} in release "
+                f"{release.get('tag_name')!r}"
+            )
     if len(matches) > 1:
         names = ", ".join(asset.get("name", "") for asset in matches)
         raise LookupError(
@@ -78,6 +100,11 @@ def main() -> int:
 
     asset = sub.add_parser("select-asset")
     asset.add_argument("--pattern", required=True)
+    asset.add_argument(
+        "--sha256",
+        default="",
+        help="Disambiguate matching assets by their sha256 digest",
+    )
 
     args = parser.parse_args()
 
@@ -103,7 +130,7 @@ def main() -> int:
         else:
             if not isinstance(payload, dict):
                 raise LookupError("select-asset expects a JSON object")
-            result = _require_exact_asset(payload, args.pattern)
+            result = _require_exact_asset(payload, args.pattern, args.sha256)
     except LookupError as exc:
         print(str(exc), file=sys.stderr)
         return 3

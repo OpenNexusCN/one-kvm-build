@@ -58,11 +58,17 @@ resolve_release() {
     printf '%s' "$raw" | python3 -I "${LIB_DIR}/release_tool.py" "${cargs[@]}"
 }
 
-# select_asset <release_json> <glob>
+# select_asset <release_json> <glob> [sha256]
+# The optional digest disambiguates releases that contain several assets
+# matching the same pattern (upstream refreshes images in place).
 select_asset() {
-    local release_json="$1" pattern="$2"
+    local release_json="$1" pattern="$2" sha256="${3:-}"
+    local -a args=(select-asset --pattern "$pattern")
+    if [ -n "$sha256" ]; then
+        args+=(--sha256 "$sha256")
+    fi
     printf '%s' "$release_json" \
-        | python3 -I "${LIB_DIR}/release_tool.py" select-asset --pattern "$pattern"
+        | python3 -I "${LIB_DIR}/release_tool.py" "${args[@]}"
 }
 
 # asset_field <asset_json> <field>

@@ -197,9 +197,10 @@ rootfs/boot overlay、安装前后 hook。适合放 u-boot blob、固件、udev 
 
 ## 安全与可重复性
 
-- 基础镜像按板子配置里的 SHA256 校验；内核 release 用 release 的
-  `SHA256SUMS` 和 GitHub asset digest 双重校验；One-KVM deb 使用
-  release asset digest 校验。
+- 基础镜像按板子配置里的 SHA256 校验；解析资产时也用这个摘要在同一
+  release 的多个同名模式镜像之间消歧（按 asset `digest` 精确选择）；
+  内核 release 用 release 的 `SHA256SUMS` 和 GitHub asset digest 双重校验；
+  One-KVM deb 使用 release asset digest 校验。
 - 内核/基础镜像/One-KVM 的版本在 `prepare` 阶段固定，写进构建计划，
   所有板子使用同一组输入。
 - 构建脚本要求 root（loop device 和 mount），CI 通过 `sudo -E` 调用；

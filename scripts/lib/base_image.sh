@@ -27,7 +27,11 @@ resolve_base_image_asset() {
         || die "Cannot resolve a base image release for ${BASE_IMAGE_ASSET_PATTERN}"
     BASE_RELEASE_TAG="$(printf '%s' "$release_json" | jq -r '.tag_name')"
 
-    asset_json="$(select_asset "$release_json" "$BASE_IMAGE_ASSET_PATTERN")" \
+    # A pinned BASE_IMAGE_SHA256 also disambiguates a release that now holds
+    # several images matching the same pattern (for example a refreshed
+    # Armbian build with a newer vendor kernel).
+    asset_json="$(select_asset "$release_json" "$BASE_IMAGE_ASSET_PATTERN" \
+        "${BASE_IMAGE_SHA256:-}")" \
         || die "Cannot select base image asset ${BASE_IMAGE_ASSET_PATTERN}"
     BASE_NAME="$(asset_field "$asset_json" name)"
     BASE_URL="$(asset_field "$asset_json" browser_download_url)"
