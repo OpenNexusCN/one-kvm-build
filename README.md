@@ -42,8 +42,8 @@ prepare ──> kernel ──> build (matrix: 每个板子一个 job) ──> re
    如果 release 没有 `modules-*.tar.gz`，按同一源码 tag 和 config 重编译
    模块（One-KVM 的 USB gadget 依赖模块）。
 3. **build**：解压基础镜像 → 扩容 rootfs → 挂载 → 替换内核/DTB/modules →
-   安装额外 apt 包 → 配置 Wi-Fi AP/强制门户 → 重建 initramfs →
-   安装 One-KVM deb → 应用 components → 压缩校验。
+   安装额外 apt 包 → 配置 Wi-Fi AP/强制门户 → 内置 ISO 修复工具 →
+   重建 initramfs → 安装 One-KVM deb → 应用 components → 压缩校验。
 4. **release**：汇总所有镜像，生成 release notes 与 SHA256SUMS，
    创建 `V<年月日时分秒>` release。
 
@@ -202,6 +202,42 @@ ophub 的 Rockchip 镜像同时提供：
   recommends；
 - 包名会做白名单校验（只允许普通 Debian 包名，不支持 `pkg=version`）。
 
+### 8. ISO 修复工具（UDF-only 镜像）
+
+有些重打包的 Windows 镜像把 ISO9660 层做成空壳，真实文件只放在 UDF 分区里；
+One-KVM 的 USB 虚拟光驱不向 Windows 暴露 UDF，这类镜像在客户机里只能看到
+`README.TXT`，或者安装时报“缺少计算机所需的介质驱动程序”。
+
+镜像内置了 [onekvm-iso-fix](docs/iso-fix/README.md)，把这些 ISO 重制成标准
+ISO9660 + Joliet 并保留 El Torito（BIOS + UEFI）引导：
+
+- apt 包：`xorriso genisoimage udftools`（`ISO_FIX_PACKAGES`）；
+- 命令：`/usr/local/sbin/onekvm-iso-fix`，同时提供
+  `/usr/local/sbin/onekvm-iso-fix.sh` 符号链接；
+- 使用说明：`/usr/share/doc/onekvm-iso-fix/README.md`；
+- 构建时校验内核的 UDF/ISO9660 支持：`CONFIG_UDF_FS=y`，或 `=m` 且
+  模块树里存在 `udf.ko`；缺失时默认让构建失败
+  （`ISO_FIX_REQUIRE_UDF=false` 可改成只告警）；
+- `ISO_FIX_ENABLED=false` 可关闭工具与包安装。
+
+设备上的典型用法：
+
+```bash
+# 先检测（不转换）
+onekvm-iso-fix -n /etc/one-kvm/msd/images/win10.iso
+
+# 转换后把原文件改名，避免在网页里选错
+onekvm-iso-fix --replace /etc/one-kvm/msd/images/*.iso
+```
+
+转换完成后在 One-KVM 网页里重新选择新镜像并“连接”，然后重启被控机。
+
+另外，`zoneBen/One-KVM` 从 `V20261117131406`（0.2.9，2026-11-17）起在
+Web UI 里也内置了挂载时的 ISO 转换：它调用 `xorriso` 并依赖内核 UDF
+模块。本仓库预装的 `xorriso` 和构建时的 `udf.ko` 校验同时覆盖了这条
+路径，因此无需额外配置；`onekvm-iso-fix` 仍适合 SSH 下批量/离线转换
+（并且额外需要 `genisoimage`、`udftools`）。
+
 ## 目录结构
 
 ```text
@@ -211,6 +247,7 @@ ophub 的 Rockchip 镜像同时提供：
 ├── components/                          # 板子/平台特殊组件
 ├── config/defaults.conf                 # 全局默认配置
 ├── files/wifi-ap/                       # Wi-Fi AP/门户的运行时脚本和 systemd 单元
+├── files/iso-fix/                       # 内置 ISO 修复脚本（与 docs/iso-fix 同步）
 ├── scripts/
 │   ├── build-image.sh                   # 单板镜像构建入口
 │   ├── plan-build.sh                    # 解析输入 + 生成 matrix
@@ -219,6 +256,7 @@ ophub 的 Rockchip 镜像同时提供：
 │   ├── list-boards.sh
 │   ├── features/apt-install.sh          # chroot 内安装额外 apt 包
 │   ├── features/wifi-ap.sh              # 写入 AP/门户配置
+│   ├── features/iso-fix.sh              # 安装 ISO 修复工具并校验内核支持
 │   ├── families/rockchip.sh             # Rockchip 镜像内部操作
 │   ├── kernel/                          # 内核 bundle 与模块重编译
 │   ├── one-kvm/                         # One-KVM release 解析与安装

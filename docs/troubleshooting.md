@@ -106,6 +106,46 @@ Not enough space in root filesystem
 - 或者设置 `PRUNE_OLD_KERNEL=true` 删除基础镜像自带内核，释放空间；
 - 或减少不需要的组件。
 
+## Windows 镜像只看到 README.TXT / 缺少介质驱动程序
+
+现象：通过 One-KVM 虚拟光驱挂载某些重打包的 Windows ISO，客户机里只看到
+`README.TXT`，或者 Windows Setup 报“缺少计算机所需的介质驱动程序”。
+
+原因：这些镜像的 ISO9660 层是空壳，真实文件都在 UDF 分区里，而虚拟光驱
+不向 Windows 暴露 UDF。镜像已内置修复工具：
+
+```bash
+onekvm-iso-fix -n /etc/one-kvm/msd/images/xxx.iso     # 先检测
+onekvm-iso-fix --replace /etc/one-kvm/msd/images/xxx.iso
+```
+
+转换后会在同目录生成 `*_joliet.iso`（`--replace` 会把原文件改名为
+`.orig-udfonly`）。随后在 One-KVM 网页里重新选择新镜像并“连接”，
+再重启被控机（WinPE 缓存了“没有安装介质”，返回再点是没用的）。
+完整说明见镜像内的 `/usr/share/doc/onekvm-iso-fix/README.md`。
+
+如果命令不存在，检查构建时是否设置了 `ISO_FIX_ENABLED=false`；
+如果提示缺少 `xorriso` / `isoinfo` / `udfinfo`，确认镜像里有
+`xorriso`、`genisoimage`、`udftools` 三个包。
+
+## 构建失败：内核缺少 UDF 支持
+
+现象：
+
+```text
+Kernel cannot mount UDF; onekvm-iso-fix would not be able to fix UDF-only ISOs
+```
+
+原因：内核 release 的 `config-*` 里没有 `CONFIG_UDF_FS=y`，或者它是
+`=m` 但模块包里面没有 `udf.ko`。修复工具需要 UDF 才能读取空壳镜像的
+真实内容。
+
+处理：
+
+- 在内核仓库打开 `CONFIG_UDF_FS`（`=y` 或 `=m`）并重新发布内核；
+- 或临时设置 `ISO_FIX_REQUIRE_UDF=false` 让构建继续（工具只能处理
+  ISO9660 树完整的镜像）。
+
 ## B 板无法启动 / Type-C 不识别
 
 `fmx1-pro-b` 目前使用 `rk3399-fmx1-pro-otg.dtb`。如果某块 B 板启动异常，

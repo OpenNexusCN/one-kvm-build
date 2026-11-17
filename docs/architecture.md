@@ -28,7 +28,7 @@ prepare ──> kernel ──> build (matrix: 每个板子一个 job) ──> re
 |---|---|---|
 | `prepare` | 校验板子配置；解析基础镜像、内核 release、One-KVM release；生成 matrix、版本号和发布参数 | `scripts/plan-build.sh` |
 | `kernel` | 下载内核 release 产物；缺少 modules 时从同一源码 tag 和 config 重编译模块；上传 `kernel-bundle` | `scripts/kernel/prepare-kernel.sh`、`scripts/kernel/build-modules.sh` |
-| `build` | 每个板子独立运行：解压基础镜像、挂载、替换内核/DTB/modules、安装 apt 包、配置 Wi-Fi AP/门户、重建 initramfs、安装 One-KVM、应用 components、压缩并校验 | `scripts/build-image.sh`、`scripts/families/rockchip.sh`、`scripts/features/*`、`scripts/one-kvm/install-one-kvm.sh` |
+| `build` | 每个板子独立运行：解压基础镜像、挂载、替换内核/DTB/modules、安装 apt 包、配置 Wi-Fi AP/门户、内置 ISO 修复工具、重建 initramfs、安装 One-KVM、应用 components、压缩并校验 | `scripts/build-image.sh`、`scripts/families/rockchip.sh`、`scripts/features/*`、`scripts/one-kvm/install-one-kvm.sh` |
 | `release` | 汇总所有镜像，生成 SHA256SUMS 和 release notes，创建 `V<年月日时分秒>` release | `scripts/release/make-release-notes.sh` |
 
 所有作业共享 `prepare` 解析出的版本号，因此一次构建里的所有板子产物
@@ -108,11 +108,35 @@ AP 客户端只能访问本机；镜像不做 NAT，避免把设备变成开放�
 
 - 板子配置的 `APT_PACKAGES`；
 - workflow_dispatch 输入 `apt_packages`；
-- 启用 AP 时的 `WIFI_AP_PACKAGES`（hostapd、dnsmasq、lighttpd、iw）。
+- 启用 AP 时的 `WIFI_AP_PACKAGES`（hostapd、dnsmasq、lighttpd、iw）；
+- 启用 ISO 修复工具时的 `ISO_FIX_PACKAGES`（xorriso、genisoimage、udftools）。
 
 安装时临时写入 `/usr/sbin/policy-rc.d`（exit 101），避免 maintainer
 脚本在 chroot 里启动服务；安装完成后恢复。包名有白名单校验，默认
 `--no-install-recommends`。
+
+## ISO 修复工具（UDF-only 镜像）
+
+`scripts/features/iso-fix.sh` 把 `docs/iso-fix/onekvm-iso-fix.sh`
+（部署副本在 `files/iso-fix/`）安装为 `/usr/local/sbin/onekvm-iso-fix`，
+并提供 `.sh` 符号链接和 `/usr/share/doc/onekvm-iso-fix/README.md`。
+依赖包由 `ISO_FIX_PACKAGES` 控制，默认 `xorriso genisoimage udftools`。
+
+工具解决的是 Windows 客户机无法读取 UDF-only 镜像的问题：它把 UDF 里的
+文件树重制为 ISO9660 + Joliet，并保留源镜像的 El Torito 引导项。
+One-KVM 新版（0.2.9，`V20261117131406` 起）在 Web UI 挂载时也会做同样的
+转换，内部调用 `xorriso` 并使用内核 UDF 模块；本 feature 预装的
+`xorriso` 和 `udf.ko` 校验对两条路径都有效。
+
+构建时还会做两层校验：
+
+1. `dpkg-query --root` 确认三个包已安装；
+2. 读取内核 release 的 `config-*`：`CONFIG_UDF_FS=y` 通过；`=m` 要求
+   `/usr/lib/modules/*/kernel/fs/udf/udf.ko*` 存在；否则失败
+   （`ISO_FIX_REQUIRE_UDF=false` 时只告警）。`CONFIG_ISO9660_FS`
+   缺失时告警，因为那会影响非 UDF 路径。
+
+`ISO_FIX_ENABLED=false` 可以整体关闭。
 
 ## 多板子兼容设计
 

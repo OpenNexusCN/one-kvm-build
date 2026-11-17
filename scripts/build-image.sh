@@ -354,6 +354,9 @@ install_extra_packages() {
     if [ "${WIFI_AP_ENABLED:-true}" = "true" ]; then
         packages+=" ${WIFI_AP_PACKAGES:-hostapd dnsmasq lighttpd iw}"
     fi
+    if [ "${ISO_FIX_ENABLED:-true}" = "true" ]; then
+        packages+=" ${ISO_FIX_PACKAGES:-xorriso genisoimage udftools}"
+    fi
     bash "${SCRIPT_DIR}/features/apt-install.sh" \
         --root "$ROOT_MNT" \
         --packages "$packages" \
@@ -378,6 +381,17 @@ configure_wifi_ap() {
         --dhcp-end "${WIFI_AP_DHCP_END:-10.42.0.100}" \
         --portal-port "${WIFI_AP_PORTAL_PORT:-8080}" \
         --interface "${WIFI_AP_INTERFACE:-}"
+}
+
+configure_iso_fix() {
+    if [ "${ISO_FIX_ENABLED:-true}" != "true" ]; then
+        info "ISO fix tool installation disabled"
+        return 0
+    fi
+    bash "${SCRIPT_DIR}/features/iso-fix.sh" \
+        --root "$ROOT_MNT" \
+        --kernel-config "${KERNEL_BUNDLE}/${KERNEL_CONFIG}" \
+        --require-udf "${ISO_FIX_REQUIRE_UDF:-true}"
 }
 
 # ---------------------------------------------------------------------------
@@ -406,6 +420,8 @@ write_image_manifest() {
         --arg wifi_ap_security "${WIFI_AP_SECURITY:-open}" \
         --arg wifi_ap_ip "${WIFI_AP_IP:-10.42.0.1}" \
         --arg wifi_ap_portal_port "${WIFI_AP_PORTAL_PORT:-8080}" \
+        --arg iso_fix_enabled "${ISO_FIX_ENABLED:-true}" \
+        --arg iso_fix_packages "${ISO_FIX_PACKAGES:-xorriso genisoimage udftools}" \
         --arg commit "${GITHUB_SHA:-local}" \
         --arg run "${GITHUB_RUN_ID:-local}" \
         '{board: $board, board_name: $board_name, build_version: $version,
@@ -417,7 +433,9 @@ write_image_manifest() {
           apt_packages: $apt_packages,
           wifi_ap: {enabled: $wifi_ap_enabled, ssid_prefix: $wifi_ap_prefix,
                     security: $wifi_ap_security, ip: $wifi_ap_ip,
-                    portal_port: $wifi_ap_portal_port}}' \
+                    portal_port: $wifi_ap_portal_port},
+          iso_fix: {enabled: $iso_fix_enabled, packages: $iso_fix_packages,
+                    tool: "/usr/local/sbin/onekvm-iso-fix"}}' \
         >"${ROOT_MNT}/etc/one-kvm-build/build.json"
 }
 
@@ -507,9 +525,10 @@ family_configure_boot
 family_configure_system
 group_end
 
-group_start "Install extra packages and Wi-Fi AP"
+group_start "Install extra packages and features"
 install_extra_packages
 configure_wifi_ap
+configure_iso_fix
 group_end
 
 group_start "Regenerate initramfs"
@@ -542,6 +561,8 @@ jq -n \
     --arg wifi_ap_security "${WIFI_AP_SECURITY:-open}" \
     --arg wifi_ap_ip "${WIFI_AP_IP:-10.42.0.1}" \
     --arg wifi_ap_portal_port "${WIFI_AP_PORTAL_PORT:-8080}" \
+    --arg iso_fix_enabled "${ISO_FIX_ENABLED:-true}" \
+    --arg iso_fix_packages "${ISO_FIX_PACKAGES:-xorriso genisoimage udftools}" \
     --arg built_at "$(utc_now)" \
     '{board: $board, build_version: $version, built_at: $built_at,
       base_image: {name: $base_image, sha256: $base_sha, release: $base_release,
@@ -552,7 +573,9 @@ jq -n \
       apt_packages: $apt_packages,
       wifi_ap: {enabled: $wifi_ap_enabled, ssid_prefix: $wifi_ap_prefix,
                 security: $wifi_ap_security, ip: $wifi_ap_ip,
-                portal_port: $wifi_ap_portal_port}}' \
+                portal_port: $wifi_ap_portal_port},
+      iso_fix: {enabled: $iso_fix_enabled, packages: $iso_fix_packages,
+                tool: "/usr/local/sbin/onekvm-iso-fix"}}' \
     >"${OUT}/manifest-${BOARD_ID}.json"
 
 family_cleanup
@@ -579,6 +602,7 @@ set_output manifest "${OUT}/manifest-${BOARD_ID}.json"
     echo "- DTB: \`${KERNEL_DTB}\`"
     echo "- One-KVM: ${ONE_KVM_VERSION:-skipped}"
     echo "- Wi-Fi AP: ${WIFI_AP_ENABLED:-true} (SSID ${WIFI_AP_SSID_PREFIX:-OneKVM-}<hash>, portal :${WIFI_AP_PORTAL_PORT:-8080})"
+    echo "- ISO fix tool: ${ISO_FIX_ENABLED:-true} (${ISO_FIX_PACKAGES:-xorriso genisoimage udftools})"
     echo "- Extra apt: ${APT_PACKAGES:-} ${ARG_APT_PACKAGES:-}"
 } >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
 

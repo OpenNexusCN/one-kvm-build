@@ -24,7 +24,9 @@ check "shell syntax" bash -c '
     set -e
     for f in $(find scripts -type f -name "*.sh"); do bash -n "$f"; done
     bash -n files/wifi-ap/onekvm-ap-init.sh
+    bash -n files/iso-fix/onekvm-iso-fix.sh
 '
+check "iso-fix script sync" cmp -s docs/iso-fix/onekvm-iso-fix.sh files/iso-fix/onekvm-iso-fix.sh
 check "wifi-ap templates" bash -c '
     test -f files/wifi-ap/onekvm-wifi-ap.service
     test -f files/wifi-ap/unit-after.conf
@@ -118,6 +120,41 @@ check "wifi-ap build install" bash -c "
 "
 check "wifi-ap rejects bad security" bash -c "
     ! bash scripts/features/wifi-ap.sh --root '${tmp}/ap-root' --security nope >/dev/null 2>&1
+"
+
+mkdir -p "${tmp}/iso-fix-root/usr/lib/modules/6.18.60-test/kernel/fs/udf" \
+         "${tmp}/iso-fix-root/usr/lib/modules/6.18.60-test/kernel/fs/isofs"
+: >"${tmp}/iso-fix-root/usr/lib/modules/6.18.60-test/kernel/fs/udf/udf.ko"
+: >"${tmp}/iso-fix-root/usr/lib/modules/6.18.60-test/kernel/fs/isofs/isofs.ko"
+cat >"${tmp}/kconfig-udf" <<'EOF'
+CONFIG_ISO9660_FS=m
+CONFIG_UDF_FS=m
+EOF
+cat >"${tmp}/kconfig-noudf" <<'EOF'
+# CONFIG_UDF_FS is not set
+CONFIG_ISO9660_FS=y
+EOF
+check "iso-fix build install" bash -c "
+    bash scripts/features/iso-fix.sh \
+        --root '${tmp}/iso-fix-root' \
+        --skip-deps-check \
+        --kernel-config '${tmp}/kconfig-udf'
+    test -x '${tmp}/iso-fix-root/usr/local/sbin/onekvm-iso-fix'
+    test -L '${tmp}/iso-fix-root/usr/local/sbin/onekvm-iso-fix.sh'
+    test -f '${tmp}/iso-fix-root/usr/share/doc/onekvm-iso-fix/README.md'
+"
+check "iso-fix rejects kernel without udf" bash -c "
+    ! bash scripts/features/iso-fix.sh \
+        --root '${tmp}/iso-fix-root' \
+        --skip-deps-check \
+        --kernel-config '${tmp}/kconfig-noudf' >/dev/null 2>&1
+"
+check "iso-fix allows kernel without udf when optional" bash -c "
+    bash scripts/features/iso-fix.sh \
+        --root '${tmp}/iso-fix-root' \
+        --skip-deps-check \
+        --require-udf false \
+        --kernel-config '${tmp}/kconfig-noudf'
 "
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
