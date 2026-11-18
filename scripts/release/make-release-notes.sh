@@ -46,12 +46,11 @@ for manifest in "${manifests[@]}"; do
 done
 
 echo
-echo "### 烧录说明"
+echo "### 说明"
 echo
-echo "1. 解压镜像：\`gzip -d <镜像>.img.gz\`（或使用 balenaEtcher / Rufus 直接写入）。"
-echo "2. 写入 TF 卡或 eMMC。FMX1 可按住刷机键上电进入 MASKROM，使用 RKDevTool 写入。"
-echo "3. 首次启动后通过串口或路由器查看设备 IP。Armbian 默认账号为 \`root\`，默认密码 \`1234\`（首次登录会要求修改）。"
-echo "4. One-KVM Web 控制台：\`http://<设备IP>:8080\`。"
+echo "1. 解压镜像：\`gzip -d <镜像>.img.gz\` 使用 RKDevTool 写入 地址 0 。"
+echo "2. 首次启动后通过串口或路由器查看设备 IP。Armbian 默认账号为 \`root\`，默认密码 \`1234\`（首次登录会要求修改）。"
+echo "3. One-KVM Web 控制台：\`http://<设备IP>:8080\`。"
 echo
 echo "### 校验"
 echo
