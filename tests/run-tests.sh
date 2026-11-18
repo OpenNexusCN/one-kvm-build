@@ -170,5 +170,24 @@ check "iso-fix allows kernel without udf when optional" bash -c "
         --kernel-config '${tmp}/kconfig-noudf'
 "
 
+mkdir -p "${tmp}/android-root"
+check "android tools install" bash -c "
+    bash scripts/features/android-tools.sh \
+        --root '${tmp}/android-root' \
+        --skip-deps-check
+    test -x '${tmp}/android-root/usr/local/bin/scrcpy'
+    test -f '${tmp}/android-root/usr/local/share/scrcpy/scrcpy-server'
+    test \"\$(sha256sum '${tmp}/android-root/usr/local/bin/scrcpy' | cut -d' ' -f1)\" = \
+        '4fd97fd1134fd74b01c300e5b5c7f79121f278b719fef1e7fe179dc8692728c9'
+"
+check "android tools reject tampered client" bash -c "
+    cp -a 3rd/scrcpy-3.3-aarch64 '${tmp}/tampered-scrcpy'
+    printf 'x' >> '${tmp}/tampered-scrcpy/scrcpy'
+    ! bash scripts/features/android-tools.sh \
+        --root '${tmp}/android-root2' \
+        --source '${tmp}/tampered-scrcpy' \
+        --skip-deps-check >/dev/null 2>&1
+"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

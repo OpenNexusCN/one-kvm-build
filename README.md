@@ -42,8 +42,9 @@ prepare ──> kernel ──> build (matrix: 每个板子一个 job) ──> re
    如果 release 没有 `modules-*.tar.gz`，按同一源码 tag 和 config 重编译
    模块（One-KVM 的 USB gadget 依赖模块）。
 3. **build**：解压基础镜像 → 扩容 rootfs → 挂载 → 替换内核/DTB/modules →
-   安装额外 apt 包 → 配置 Wi-Fi AP/强制门户 → 内置 ISO 修复工具 →
-   重建 initramfs → 安装 One-KVM deb → 应用 components → 压缩校验。
+   安装额外 apt 包 → 配置 Wi-Fi AP/强制门户 → 内置 ISO 修复工具和
+   adb/scrcpy → 重建 initramfs → 安装 One-KVM deb → 应用 components →
+   压缩校验。
 4. **release**：汇总所有镜像，生成 release notes 与 SHA256SUMS，
    创建 `V<年月日时分秒>` release。
 
@@ -238,11 +239,35 @@ Web UI 里也内置了挂载时的 ISO 转换：它调用 `xorriso` 并依赖内
 路径，因此无需额外配置；`onekvm-iso-fix` 仍适合 SSH 下批量/离线转换
 （并且额外需要 `genisoimage`、`udftools`）。
 
+### 9. Android 手机控制工具（adb + scrcpy）
+
+镜像预装 adb 和 scrcpy 3.3，为 One-KVM 后续控制 Android 手机（例如远程
+协助不会用手机的老人）做准备：
+
+- apt 包（`ANDROID_TOOLS_PACKAGES`）：`adb`、
+  `android-sdk-platform-tools-common`（USB udev 规则）、`ffmpeg`，以及
+  FFmpeg/SDL2/libusb 开发包、`meson`、`ninja-build`、`pkg-config`；
+- **不安装 Ubuntu 仓库的 `scrcpy` 1.25**（在 Android 14+ 上会崩溃）；
+- 唯一客户端：`3rd/scrcpy-3.3-aarch64/scrcpy` 安装为
+  `/usr/local/bin/scrcpy`，配套服务端安装为
+  `/usr/local/share/scrcpy/scrcpy-server`；构建时校验 SHA256 和
+  aarch64 架构；
+- 用法示例（板子无桌面环境时录制）：
+  ```bash
+  adb devices
+  scrcpy --no-playback --no-audio --record=/tmp/rec.mp4
+  ```
+- `ANDROID_TOOLS_ENABLED=false` 可关闭工具与包安装。
+
+手机需要开启“USB 调试”并允许本机调试授权；One-KVM 服务以 root 运行，
+可以直接使用 adb。
+
 ## 目录结构
 
 ```text
 .
 ├── .github/workflows/build-images.yml   # GitHub Actions 工作流
+├── 3rd/scrcpy-3.3-aarch64/              # 预编译 scrcpy 3.3（aarch64）+ 校验和
 ├── boards/                              # 板子配置
 ├── components/                          # 板子/平台特殊组件
 ├── config/defaults.conf                 # 全局默认配置
@@ -257,6 +282,7 @@ Web UI 里也内置了挂载时的 ISO 转换：它调用 `xorriso` 并依赖内
 │   ├── features/apt-install.sh          # chroot 内安装额外 apt 包
 │   ├── features/wifi-ap.sh              # 写入 AP/门户配置
 │   ├── features/iso-fix.sh              # 安装 ISO 修复工具并校验内核支持
+│   ├── features/android-tools.sh        # 安装预编译 scrcpy 3.3（adb 包由 apt 装）
 │   ├── families/rockchip.sh             # Rockchip 镜像内部操作
 │   ├── kernel/                          # 内核 bundle 与模块重编译
 │   ├── one-kvm/                         # One-KVM release 解析与安装

@@ -233,6 +233,55 @@ in release 'Armbian_noble_arm64_server_2026.11': ...6.18.59..., ...6.18.63...
 等于 release 中某个 asset 的 `digest`，或者把
 `BASE_IMAGE_ASSET_PATTERN` 收窄到具体文件名。
 
+## adb 看不到手机
+
+检查：
+
+```bash
+adb devices
+lsusb
+command -v scrcpy
+scrcpy --version
+```
+
+- 手机需要开启“开发者选项 → USB 调试”，并在弹窗中允许本机调试。
+- 使用数据线而不是纯充电线，必要时更换 USB 口/线。
+- `android-sdk-platform-tools-common` 提供 USB udev 规则，确认已安装：
+  `dpkg -l android-sdk-platform-tools-common`。
+- One-KVM 服务以 root 运行 adb，不需要额外的用户组配置。
+
+## scrcpy 崩溃 / 录出 0 字节
+
+Ubuntu 仓库的 scrcpy 1.25 在 Android 14+ 上会因服务端反射调用失败而
+崩溃，因此镜像**不安装**该包，只提供预编译的 3.3。确认：
+
+```bash
+command -v scrcpy          # 应为 /usr/local/bin/scrcpy
+scrcpy --version           # 3.3
+ls -l /usr/local/share/scrcpy/scrcpy-server
+```
+
+如果 `command -v scrcpy` 指向 `/usr/bin/scrcpy`，说明有人手动装了发行版
+包（或者用了旧镜像），移除它：
+`apt-get remove --purge scrcpy`。如果命令不存在，检查构建时是否设置了
+`ANDROID_TOOLS_ENABLED=false`。板子没有桌面环境时使用
+`--no-playback --record=...`。
+
+## 构建失败：scrcpy 校验或架构不符
+
+现象：
+
+```text
+scrcpy checksums do not match ...
+scrcpy is not an aarch64 binary: ...
+```
+
+处理：
+
+- 确认 `3rd/scrcpy-3.3-aarch64/` 下的 `scrcpy`、`scrcpy-server` 未被改动；
+  如果替换了版本，同步更新同目录的 `SHA256SUMS`。
+- 客户端必须是 aarch64 ELF；镜像不能运行 x86 版本。
+
 ## GitHub API rate limit
 
 `prepare` 作业使用 `GITHUB_TOKEN`，限额足够。本地运行 `make plan` 或

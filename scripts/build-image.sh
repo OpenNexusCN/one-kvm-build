@@ -357,6 +357,9 @@ install_extra_packages() {
     if [ "${ISO_FIX_ENABLED:-true}" = "true" ]; then
         packages+=" ${ISO_FIX_PACKAGES:-xorriso genisoimage udftools}"
     fi
+    if [ "${ANDROID_TOOLS_ENABLED:-true}" = "true" ]; then
+        packages+=" ${ANDROID_TOOLS_PACKAGES:-adb ffmpeg}"
+    fi
     bash "${SCRIPT_DIR}/features/apt-install.sh" \
         --root "$ROOT_MNT" \
         --packages "$packages" \
@@ -394,6 +397,14 @@ configure_iso_fix() {
         --require-udf "${ISO_FIX_REQUIRE_UDF:-true}"
 }
 
+configure_android_tools() {
+    if [ "${ANDROID_TOOLS_ENABLED:-true}" != "true" ]; then
+        info "Android tools installation disabled"
+        return 0
+    fi
+    bash "${SCRIPT_DIR}/features/android-tools.sh" --root "$ROOT_MNT"
+}
+
 # ---------------------------------------------------------------------------
 # Metadata / output
 # ---------------------------------------------------------------------------
@@ -422,6 +433,10 @@ write_image_manifest() {
         --arg wifi_ap_portal_port "${WIFI_AP_PORTAL_PORT:-8080}" \
         --arg iso_fix_enabled "${ISO_FIX_ENABLED:-true}" \
         --arg iso_fix_packages "${ISO_FIX_PACKAGES:-xorriso genisoimage udftools}" \
+        --arg android_tools_enabled "${ANDROID_TOOLS_ENABLED:-true}" \
+        --arg android_tools_packages "${ANDROID_TOOLS_PACKAGES:-adb ffmpeg}" \
+        --arg android_scrcpy_version "${ANDROID_SCRCPY_VERSION:-3.3}" \
+        --arg android_scrcpy_source "3rd/scrcpy-3.3-aarch64" \
         --arg commit "${GITHUB_SHA:-local}" \
         --arg run "${GITHUB_RUN_ID:-local}" \
         '{board: $board, board_name: $board_name, build_version: $version,
@@ -435,7 +450,13 @@ write_image_manifest() {
                     security: $wifi_ap_security, ip: $wifi_ap_ip,
                     portal_port: $wifi_ap_portal_port},
           iso_fix: {enabled: $iso_fix_enabled, packages: $iso_fix_packages,
-                    tool: "/usr/local/sbin/onekvm-iso-fix"}}' \
+                    tool: "/usr/local/sbin/onekvm-iso-fix"},
+          android_tools: {enabled: $android_tools_enabled,
+                          packages: $android_tools_packages,
+                          scrcpy_version: $android_scrcpy_version,
+                          scrcpy_source: $android_scrcpy_source,
+                          client: "/usr/local/bin/scrcpy",
+                          server: "/usr/local/share/scrcpy/scrcpy-server"}}' \
         >"${ROOT_MNT}/etc/one-kvm-build/build.json"
 }
 
@@ -529,6 +550,7 @@ group_start "Install extra packages and features"
 install_extra_packages
 configure_wifi_ap
 configure_iso_fix
+configure_android_tools
 group_end
 
 group_start "Regenerate initramfs"
@@ -563,6 +585,10 @@ jq -n \
     --arg wifi_ap_portal_port "${WIFI_AP_PORTAL_PORT:-8080}" \
     --arg iso_fix_enabled "${ISO_FIX_ENABLED:-true}" \
     --arg iso_fix_packages "${ISO_FIX_PACKAGES:-xorriso genisoimage udftools}" \
+    --arg android_tools_enabled "${ANDROID_TOOLS_ENABLED:-true}" \
+    --arg android_tools_packages "${ANDROID_TOOLS_PACKAGES:-adb ffmpeg}" \
+    --arg android_scrcpy_version "${ANDROID_SCRCPY_VERSION:-3.3}" \
+    --arg android_scrcpy_source "3rd/scrcpy-3.3-aarch64" \
     --arg built_at "$(utc_now)" \
     '{board: $board, build_version: $version, built_at: $built_at,
       base_image: {name: $base_image, sha256: $base_sha, release: $base_release,
@@ -575,7 +601,13 @@ jq -n \
                 security: $wifi_ap_security, ip: $wifi_ap_ip,
                 portal_port: $wifi_ap_portal_port},
       iso_fix: {enabled: $iso_fix_enabled, packages: $iso_fix_packages,
-                tool: "/usr/local/sbin/onekvm-iso-fix"}}' \
+                tool: "/usr/local/sbin/onekvm-iso-fix"},
+      android_tools: {enabled: $android_tools_enabled,
+                      packages: $android_tools_packages,
+                      scrcpy_version: $android_scrcpy_version,
+                      scrcpy_source: $android_scrcpy_source,
+                      client: "/usr/local/bin/scrcpy",
+                      server: "/usr/local/share/scrcpy/scrcpy-server"}}' \
     >"${OUT}/manifest-${BOARD_ID}.json"
 
 family_cleanup
@@ -603,6 +635,7 @@ set_output manifest "${OUT}/manifest-${BOARD_ID}.json"
     echo "- One-KVM: ${ONE_KVM_VERSION:-skipped}"
     echo "- Wi-Fi AP: ${WIFI_AP_ENABLED:-true} (SSID ${WIFI_AP_SSID_PREFIX:-OneKVM-}<hash>, portal :${WIFI_AP_PORTAL_PORT:-8080})"
     echo "- ISO fix tool: ${ISO_FIX_ENABLED:-true} (${ISO_FIX_PACKAGES:-xorriso genisoimage udftools})"
+    echo "- Android tools: ${ANDROID_TOOLS_ENABLED:-true} (scrcpy ${ANDROID_SCRCPY_VERSION:-3.3}, adb + ffmpeg)"
     echo "- Extra apt: ${APT_PACKAGES:-} ${ARG_APT_PACKAGES:-}"
 } >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
 

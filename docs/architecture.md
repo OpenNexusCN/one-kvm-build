@@ -28,7 +28,7 @@ prepare ──> kernel ──> build (matrix: 每个板子一个 job) ──> re
 |---|---|---|
 | `prepare` | 校验板子配置；解析基础镜像、内核 release、One-KVM release；生成 matrix、版本号和发布参数 | `scripts/plan-build.sh` |
 | `kernel` | 下载内核 release 产物；缺少 modules 时从同一源码 tag 和 config 重编译模块；上传 `kernel-bundle` | `scripts/kernel/prepare-kernel.sh`、`scripts/kernel/build-modules.sh` |
-| `build` | 每个板子独立运行：解压基础镜像、挂载、替换内核/DTB/modules、安装 apt 包、配置 Wi-Fi AP/门户、内置 ISO 修复工具、重建 initramfs、安装 One-KVM、应用 components、压缩并校验 | `scripts/build-image.sh`、`scripts/families/rockchip.sh`、`scripts/features/*`、`scripts/one-kvm/install-one-kvm.sh` |
+| `build` | 每个板子独立运行：解压基础镜像、挂载、替换内核/DTB/modules、安装 apt 包、配置 Wi-Fi AP/门户、内置 ISO 修复工具和 adb/scrcpy、重建 initramfs、安装 One-KVM、应用 components、压缩并校验 | `scripts/build-image.sh`、`scripts/families/rockchip.sh`、`scripts/features/*`、`scripts/one-kvm/install-one-kvm.sh` |
 | `release` | 汇总所有镜像，生成 SHA256SUMS 和 release notes，创建 `V<年月日时分秒>` release | `scripts/release/make-release-notes.sh` |
 
 所有作业共享 `prepare` 解析出的版本号，因此一次构建里的所有板子产物
@@ -109,7 +109,10 @@ AP 客户端只能访问本机；镜像不做 NAT，避免把设备变成开放�
 - 板子配置的 `APT_PACKAGES`；
 - workflow_dispatch 输入 `apt_packages`；
 - 启用 AP 时的 `WIFI_AP_PACKAGES`（hostapd、dnsmasq、lighttpd、iw）；
-- 启用 ISO 修复工具时的 `ISO_FIX_PACKAGES`（xorriso、genisoimage、udftools）。
+- 启用 ISO 修复工具时的 `ISO_FIX_PACKAGES`（xorriso、genisoimage、udftools）；
+- 启用 Android 工具时的 `ANDROID_TOOLS_PACKAGES`（adb、udev 规则、ffmpeg
+  及 FFmpeg/SDL2/libusb 开发包、meson/ninja/pkg-config）；Ubuntu 仓库的
+  scrcpy 1.25 **不安装**，客户端由 3rd 的预编译 3.3 提供。
 
 安装时临时写入 `/usr/sbin/policy-rc.d`（exit 101），避免 maintainer
 脚本在 chroot 里启动服务；安装完成后恢复。包名有白名单校验，默认
@@ -137,6 +140,23 @@ One-KVM 新版（0.2.9，`V20261117131406` 起）在 Web UI 挂载时也会做�
    缺失时告警，因为那会影响非 UDF 路径。
 
 `ISO_FIX_ENABLED=false` 可以整体关闭。
+
+## Android 工具（adb + scrcpy）
+
+`scripts/features/android-tools.sh` 把 `3rd/scrcpy-3.3-aarch64/` 里的
+预编译客户端安装为 `/usr/local/bin/scrcpy`，配套服务端安装为
+`/usr/local/share/scrcpy/scrcpy-server`。构建时会：
+
+1. 用同目录的 `SHA256SUMS` 校验两个文件的摘要；
+2. 用 `file` 确认客户端是 aarch64 ELF；
+3. 用 `dpkg-query --root` 确认 `adb`、`ffmpeg` 已安装；
+4. 按客户端 `readelf -d` 的 NEEDED 列表检查 FFmpeg/SDL2/libusb 的
+   SONAME（`.so.60`、`.so.58` 等），避免基础镜像升级 FFmpeg 后直到
+   设备上才报缺库。
+
+Ubuntu 仓库的 scrcpy 1.25 不安装（Android 14+ 上会崩溃），因此镜像里
+只有一个 scrcpy 客户端：`/usr/local/bin/scrcpy` 3.3。
+`ANDROID_TOOLS_ENABLED=false` 可以关闭整个 feature（脚本与包都不安装）。
 
 ## 多板子兼容设计
 

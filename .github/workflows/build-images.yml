@@ -57,6 +57,7 @@ on:
       - "scripts/**"
       - "config/**"
       - "files/**"
+      - "3rd/**"
 
   repository_dispatch:
     types:
