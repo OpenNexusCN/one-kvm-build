@@ -59,6 +59,19 @@ check "nanopc-t4 scrcpy distro config" bash -c '
     [ "$ANDROID_SCRCPY_MODE" = "distro" ]
     [ "$ANDROID_SCRCPY_APT_SUITE" = "trixie-backports" ]
 '
+check "matrix sw799" bash -c '
+    out="$(bash scripts/prepare-matrix.sh --boards sw799)"
+    printf "%s" "$out" | jq -e "length == 1 and .[0].board == \"sw799\" and .[0].config == \"boards/sw799.conf\"" >/dev/null
+'
+check "sw799 config" bash -c '
+    source config/defaults.conf
+    source boards/sw799.conf
+    [ "$KERNEL_DTB" = "rk3399-bozz-sw799-otg.dtb" ]
+    [ "$KERNEL_DTB_FROM_BASE_IMAGE" = "false" ]
+    [ "$ANDROID_SCRCPY_MODE" = "distro" ]
+    [ "$ANDROID_SCRCPY_APT_SUITE" = "trixie-backports" ]
+    [ "$BASE_IMAGE_SHA256" = "23ffcfcdc59f00283fc7bfaa635bb5a753dc7aff35c4daffd8f39aebf444bd75" ]
+'
 check "dtb fallback helper" bash -c '
     source scripts/families/rockchip.sh
     d="$(mktemp -d)"

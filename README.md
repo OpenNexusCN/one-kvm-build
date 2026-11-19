@@ -4,8 +4,8 @@
 **One-KVM 的 arm64 deb** 组合成可直接烧录的板子镜像，全部构建过程运行在
 GitHub Actions，并把结果发布到 GitHub Releases。
 
-当前适配 **FMX1 Pro（RK3399）A/B 两个硬件版本** 和
-**FriendlyElec NanoPC-T4（RK3399）**；后续新增板子只需要增加
+当前适配 **FMX1 Pro（RK3399）A/B 两个硬件版本**、**FriendlyElec NanoPC-T4
+（RK3399）** 和 **RK3399 SW799**；后续新增板子只需要增加
 `boards/<id>.conf`，镜像内部结构不同的平台再增加一个 family 脚本。
 
 ## 产物
@@ -119,6 +119,7 @@ sudo -E bash scripts/build-image.sh \
 | `fmx1-pro` | RK3399 | ophub Armbian noble `fmx1-pro` | `rk3399-fmx1-pro-otg.dtb` | A 板，USB-C 作为 OTG peripheral |
 | `fmx1-pro-b` | RK3399 | ophub Armbian noble `fmx1-pro-b` | `rk3399-fmx1-pro-otg.dtb` | B 板，暂无 B 专用 OTG DTS |
 | `nanopc-t4` | RK3399 | ophub Armbian trixie `nanopc-t4` | `rk3399-nanopc-t4-otg.dtb`（内核仓库提供） | USB-C OTG，HID/虚拟光驱/UVC |
+| `sw799` | RK3399 | ophub Armbian trixie `sw799` | `rk3399-bozz-sw799-otg.dtb`（内核仓库提供） | J23 micro-USB OTG，HID/虚拟光驱/UVC |
 
 板子配置在 `boards/*.conf`，全局默认在 `config/defaults.conf`。
 
