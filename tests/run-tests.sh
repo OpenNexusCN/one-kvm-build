@@ -46,11 +46,11 @@ check "matrix nanopc-t4" bash -c '
     out="$(bash scripts/prepare-matrix.sh --boards nanopc-t4)"
     printf "%s" "$out" | jq -e "length == 1 and .[0].board == \"nanopc-t4\" and .[0].config == \"boards/nanopc-t4.conf\"" >/dev/null
 '
-check "nanopc-t4 base image dtb config" bash -c '
+check "nanopc-t4 kernel dtb config" bash -c '
     source config/defaults.conf
     source boards/nanopc-t4.conf
-    [ "$KERNEL_DTB" = "rk3399-nanopc-t4.dtb" ]
-    [ "$KERNEL_DTB_FROM_BASE_IMAGE" = "true" ]
+    [ "$KERNEL_DTB" = "rk3399-nanopc-t4-otg.dtb" ]
+    [ "$KERNEL_DTB_FROM_BASE_IMAGE" = "false" ]
     [ "$BASE_IMAGE_SHA256" = "8857b0ad5a3df28d0bda10bc13b2c71b9543b735d408fa09da9d86b8f23f1bb0" ]
 '
 check "dtb fallback helper" bash -c '
@@ -64,97 +64,6 @@ check "dtb fallback helper" bash -c '
     ! _dtb_available "$d/missing.dtb" "$d/missing.dtb" true
     rm -rf "$d"
 '
-if command -v dtc >/dev/null 2>&1 && command -v fdtget >/dev/null 2>&1; then
-check "nanopc-t4 usb otg dts patch" bash -c '
-    set -e
-    d="$(mktemp -d)"
-    mkdir -p "$d/boot/dtb/rockchip" \
-             "$d/root/usr/lib/modules/test/kernel/drivers/usb/gadget/function"
-    for m in libcomposite usb_f_hid usb_f_mass_storage usb_f_uvc; do
-        touch "$d/root/usr/lib/modules/test/kernel/drivers/usb/gadget/$m.ko" \
-              "$d/root/usr/lib/modules/test/kernel/drivers/usb/gadget/function/$m.ko"
-    done
-    cat >"$d/boot/config-test" <<EOF
-CONFIG_USB_GADGET=y
-CONFIG_CONFIGFS_FS=y
-CONFIG_USB_CONFIGFS=m
-CONFIG_USB_LIBCOMPOSITE=m
-CONFIG_USB_F_HID=m
-CONFIG_USB_F_MASS_STORAGE=m
-CONFIG_USB_F_UVC=m
-EOF
-    cat >"$d/base.dts" <<EOF
-/dts-v1/;
-/ {
-    usb@fe800000 {
-        usb@fe800000 {
-            compatible = "snps,dwc3";
-            dr_mode = "otg";
-            phandle = <0xe0>;
-        };
-    };
-    i2c@ff3d0000 {
-        typec-portc@22 {
-            compatible = "fcs,fusb302";
-            reg = <0x22>;
-        };
-    };
-};
-EOF
-    dtc -I dts -O dtb -o "$d/boot/dtb/rockchip/rk3399-nanopc-t4.dtb" \
-        "$d/base.dts" >/dev/null 2>&1
-    ROOT="$d/root" BOOT="$d/boot" KVER=test \
-        bash components/nanopc-t4/pre-install.d/10-usb-otg-dts.sh >/dev/null
-    node="/usb@fe800000/usb@fe800000"
-    conn="/i2c@ff3d0000/typec-portc@22/connector"
-    dtb="$d/boot/dtb/rockchip/rk3399-nanopc-t4.dtb"
-    [ "$(fdtget -t s "$dtb" "$node" dr_mode)" = "otg" ]
-    fdtget "$dtb" "$node" usb-role-switch >/dev/null
-    [ "$(fdtget -t s "$dtb" "$node" role-switch-default-mode)" = "peripheral" ]
-    [ "$(fdtget -t s "$dtb" "$node" maximum-speed)" = "high-speed" ]
-    [ "$(fdtget -t s "$dtb" "$conn" data-role)" = "device" ]
-    [ "$(fdtget -t s "$dtb" "$conn" power-role)" = "sink" ]
-    [ "$(fdtget -t i "$dtb" "$conn" usb-role-switch)" = "224" ]
-    rm -rf "$d"
-'
-check "nanopc-t4 requires gadget modules" bash -c '
-    set -e
-    d="$(mktemp -d)"
-    mkdir -p "$d/boot/dtb/rockchip" "$d/root/usr/lib/modules/test"
-    cat >"$d/boot/config-test" <<EOF
-CONFIG_USB_GADGET=y
-CONFIG_CONFIGFS_FS=y
-CONFIG_USB_CONFIGFS=m
-CONFIG_USB_LIBCOMPOSITE=m
-CONFIG_USB_F_HID=m
-CONFIG_USB_F_MASS_STORAGE=m
-CONFIG_USB_F_UVC=m
-EOF
-    cat >"$d/base.dts" <<EOF
-/dts-v1/;
-/ {
-    usb@fe800000 {
-        usb@fe800000 {
-            compatible = "snps,dwc3";
-            dr_mode = "otg";
-        };
-    };
-    i2c@ff3d0000 {
-        typec-portc@22 {
-            compatible = "fcs,fusb302";
-        };
-    };
-};
-EOF
-    dtc -I dts -O dtb -o "$d/boot/dtb/rockchip/rk3399-nanopc-t4.dtb" \
-        "$d/base.dts" >/dev/null 2>&1
-    ! ROOT="$d/root" BOOT="$d/boot" KVER=test \
-        bash components/nanopc-t4/pre-install.d/10-usb-otg-dts.sh >/dev/null 2>&1
-    rm -rf "$d"
-'
-else
-    printf 'skip nanopc-t4 usb otg dts patch (device-tree-compiler not installed)\n'
-fi
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

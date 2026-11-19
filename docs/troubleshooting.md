@@ -159,18 +159,15 @@ OTG DTS。
 现象：`/sys/class/udc` 为空，One-KVM 的 USB gadget 无法启动，或插到
 被控机后没有任何 USB 设备出现。
 
-NanoPC-T4 上游 DTB 只有 `dr_mode="otg"`，没有 role-switch 接线；6.18
-内核不会自动注册 UDC。镜像构建时由
-`components/nanopc-t4/pre-install.d/10-usb-otg-dts.sh` 把 DTB 反编译成
-DTS、追加 `components/nanopc-t4/dts/otg-fragment.dtsi`，再重新编译回
-DTB。这个 hook 还会检查内核 config/modules，缺少 HID、mass storage 或
-UVC gadget 时构建会直接失败。检查：
+NanoPC-T4 使用内核仓库提供的 `rk3399-nanopc-t4-otg.dtb`；上游
+`rk3399-nanopc-t4.dtb` 只有 `dr_mode="otg"`，没有 role-switch 接线，
+6.18 内核不会自动注册 UDC。检查：
 
 ```bash
 ls /sys/class/udc
-fdtget -t s /boot/dtb/rockchip/rk3399-nanopc-t4.dtb \
+fdtget -t s /boot/dtb/rockchip/rk3399-nanopc-t4-otg.dtb \
   /usb@fe800000/usb@fe800000 role-switch-default-mode
-fdtget -t s /boot/dtb/rockchip/rk3399-nanopc-t4.dtb \
+fdtget -t s /boot/dtb/rockchip/rk3399-nanopc-t4-otg.dtb \
   /i2c@ff3d0000/typec-portc@22/connector data-role
 dmesg | grep -iE "dwc3|fusb302|tcpm"
 ```
@@ -178,8 +175,9 @@ dmesg | grep -iE "dwc3|fusb302|tcpm"
 预期 `role-switch-default-mode` 是 `peripheral`，connector 的
 `data-role` 是 `device`。如果这些属性不存在：
 
-- 确认构建时 `APPLY_COMPONENTS=true`（默认），并且构建机安装了
-  `device-tree-compiler`（提供 `dtc`/`fdtget`）；
+- 确认镜像 manifest 里的 `kernel.dtb` 是 `rk3399-nanopc-t4-otg.dtb`；
+  如果仍引用 `rk3399-nanopc-t4.dtb`，说明用了不含 OTG DTS 的旧内核
+  release，重新构建即可；
 - 确认内核 release 的 config/modules 包含 `CONFIG_USB_F_HID`、
   `CONFIG_USB_F_MASS_STORAGE`、`CONFIG_USB_F_UVC` 以及
   `libcomposite.ko`、`usb_f_hid.ko`、`usb_f_mass_storage.ko`、

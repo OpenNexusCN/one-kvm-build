@@ -84,8 +84,7 @@ Actions -> Build One-KVM images -> Run workflow
 ## 本地构建
 
 需要 Linux、root（loop device 和 mount）、`qemu-user-static`、
-`u-boot-tools`、`device-tree-compiler`、`kmod`、`e2fsprogs`、`jq`、
-`python3`：
+`u-boot-tools`、`kmod`、`e2fsprogs`、`jq`、`python3`：
 
 ```bash
 # 校验配置
@@ -119,7 +118,7 @@ sudo -E bash scripts/build-image.sh \
 |---|---|---|---|---|
 | `fmx1-pro` | RK3399 | ophub Armbian noble `fmx1-pro` | `rk3399-fmx1-pro-otg.dtb` | A 板，USB-C 作为 OTG peripheral |
 | `fmx1-pro-b` | RK3399 | ophub Armbian noble `fmx1-pro-b` | `rk3399-fmx1-pro-otg.dtb` | B 板，暂无 B 专用 OTG DTS |
-| `nanopc-t4` | RK3399 | ophub Armbian trixie `nanopc-t4` | `rk3399-nanopc-t4.dtb`（取自基础镜像） | USB-C OTG，DTB 复用上游镜像 |
+| `nanopc-t4` | RK3399 | ophub Armbian trixie `nanopc-t4` | `rk3399-nanopc-t4-otg.dtb`（内核仓库提供） | USB-C OTG，HID/虚拟光驱/UVC |
 
 板子配置在 `boards/*.conf`，全局默认在 `config/defaults.conf`。
 
