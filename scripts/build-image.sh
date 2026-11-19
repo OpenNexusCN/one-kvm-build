@@ -144,6 +144,7 @@ IMG="${WORK}/image.img"
 ROOT_MNT="${WORK}/root"
 BOOT_MNT=""
 KERNEL_BUNDLE=""
+KERNEL_DTB_SOURCE=""
 mkdir -p "$WORK" "$OUT"
 if [ "$KEEP_WORK" != "true" ]; then
     rm -rf "${WORK:?}/"*
@@ -266,9 +267,16 @@ load_kernel_bundle() {
     source "${KERNEL_BUNDLE}/kernel.env"
     [ -n "${KERNEL_VERSION:-}" ] || die "KERNEL_VERSION is empty"
     [ -n "${KERNEL_DTB:-}" ] || die "KERNEL_DTB is not set in ${BOARD_FILE}"
-    [ -f "${KERNEL_BUNDLE}/${KERNEL_DTB}" ] \
-        || die "Kernel bundle does not contain ${KERNEL_DTB}"
+    if [ -f "${KERNEL_BUNDLE}/${KERNEL_DTB}" ]; then
+        KERNEL_DTB_SOURCE="kernel-release"
+    elif [ "${KERNEL_DTB_FROM_BASE_IMAGE:-false}" = "true" ]; then
+        KERNEL_DTB_SOURCE="base-image"
+        warn "Kernel bundle does not contain ${KERNEL_DTB}; using the DTB from the base image"
+    else
+        die "Kernel bundle does not contain ${KERNEL_DTB}"
+    fi
     info "Kernel ${KERNEL_RELEASE_TAG} / ${KERNEL_VERSION} (modules: ${KERNEL_MODULES_SOURCE})"
+    info "Device tree: ${KERNEL_DTB} (${KERNEL_DTB_SOURCE})"
 }
 
 # ---------------------------------------------------------------------------
@@ -422,6 +430,7 @@ write_image_manifest() {
         --arg kernel_tag "$KERNEL_RELEASE_TAG" \
         --arg kernel_version "$KERNEL_VERSION" \
         --arg kernel_dtb "$KERNEL_DTB" \
+        --arg kernel_dtb_source "${KERNEL_DTB_SOURCE:-unknown}" \
         --arg modules_source "$KERNEL_MODULES_SOURCE" \
         --arg one_kvm_version "${ONE_KVM_VERSION:-}" \
         --arg one_kvm_sha "${ONE_KVM_SHA256:-}" \
@@ -443,6 +452,7 @@ write_image_manifest() {
           built_at: $built_at, commit: $commit, run: $run,
           base_image: {name: $base_image, sha256: $base_sha, release: $base_release},
           kernel: {release: $kernel_tag, version: $kernel_version, dtb: $kernel_dtb,
+                   dtb_source: $kernel_dtb_source,
                    modules_source: $modules_source},
           one_kvm: {version: $one_kvm_version, sha256: $one_kvm_sha},
           apt_packages: $apt_packages,
@@ -575,6 +585,7 @@ jq -n \
     --arg kernel_tag "$KERNEL_RELEASE_TAG" \
     --arg kernel_version "$KERNEL_VERSION" \
     --arg kernel_dtb "$KERNEL_DTB" \
+    --arg kernel_dtb_source "${KERNEL_DTB_SOURCE:-unknown}" \
     --arg modules_source "$KERNEL_MODULES_SOURCE" \
     --arg one_kvm_version "${ONE_KVM_VERSION:-}" \
     --arg apt_packages "$(printf '%s %s' "${APT_PACKAGES:-}" "${ARG_APT_PACKAGES:-}" | xargs)" \
@@ -594,6 +605,7 @@ jq -n \
       base_image: {name: $base_image, sha256: $base_sha, release: $base_release,
                    kernel: $base_kernel, edition: $base_edition},
       kernel: {release: $kernel_tag, version: $kernel_version, dtb: $kernel_dtb,
+               dtb_source: $kernel_dtb_source,
                modules_source: $modules_source},
       one_kvm: {version: $one_kvm_version},
       apt_packages: $apt_packages,

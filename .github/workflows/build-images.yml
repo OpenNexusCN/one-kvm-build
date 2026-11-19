@@ -54,6 +54,7 @@ on:
     paths:
       - ".github/workflows/build-images.yml"
       - "boards/**"
+      - "components/**"
       - "scripts/**"
       - "config/**"
       - "files/**"
@@ -97,6 +98,11 @@ jobs:
       create_release: ${{ steps.plan.outputs.create_release }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends device-tree-compiler
 
       - name: Offline checks
         run: bash tests/run-tests.sh
@@ -236,7 +242,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            qemu-user-static binfmt-support u-boot-tools kmod e2fsprogs \
+            qemu-user-static binfmt-support u-boot-tools device-tree-compiler \
+            kmod e2fsprogs \
             fdisk gdisk parted util-linux rsync pigz gzip xz-utils zstd \
             jq file ca-certificates curl
           sudo update-binfmts --enable qemu-aarch64 || true

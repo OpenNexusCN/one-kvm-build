@@ -4,7 +4,8 @@
 **One-KVM 的 arm64 deb** 组合成可直接烧录的板子镜像，全部构建过程运行在
 GitHub Actions，并把结果发布到 GitHub Releases。
 
-当前适配 **FMX1 Pro（RK3399）A/B 两个硬件版本**；后续新增板子只需要增加
+当前适配 **FMX1 Pro（RK3399）A/B 两个硬件版本** 和
+**FriendlyElec NanoPC-T4（RK3399）**；后续新增板子只需要增加
 `boards/<id>.conf`，镜像内部结构不同的平台再增加一个 family 脚本。
 
 ## 产物
@@ -83,7 +84,8 @@ Actions -> Build One-KVM images -> Run workflow
 ## 本地构建
 
 需要 Linux、root（loop device 和 mount）、`qemu-user-static`、
-`u-boot-tools`、`kmod`、`e2fsprogs`、`jq`、`python3`：
+`u-boot-tools`、`device-tree-compiler`、`kmod`、`e2fsprogs`、`jq`、
+`python3`：
 
 ```bash
 # 校验配置
@@ -117,6 +119,7 @@ sudo -E bash scripts/build-image.sh \
 |---|---|---|---|---|
 | `fmx1-pro` | RK3399 | ophub Armbian noble `fmx1-pro` | `rk3399-fmx1-pro-otg.dtb` | A 板，USB-C 作为 OTG peripheral |
 | `fmx1-pro-b` | RK3399 | ophub Armbian noble `fmx1-pro-b` | `rk3399-fmx1-pro-otg.dtb` | B 板，暂无 B 专用 OTG DTS |
+| `nanopc-t4` | RK3399 | ophub Armbian trixie `nanopc-t4` | `rk3399-nanopc-t4.dtb`（取自基础镜像） | USB-C OTG，DTB 复用上游镜像 |
 
 板子配置在 `boards/*.conf`，全局默认在 `config/defaults.conf`。
 

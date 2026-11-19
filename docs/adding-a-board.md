@@ -11,6 +11,12 @@
 当前内核 workflow 显式列出了 FMX1 的三个 DTB；新增板子时记得把它加到
 `build-fmx1.yml` 的 dtb 列表里（或改成按 defconfig 构建所有 DTB）。
 
+如果上游 Armbian 镜像已经带有所需的 DTB（例如 NanoPC-T4 的
+`rk3399-nanopc-t4.dtb` 已经把 USB-C 配成 OTG），而内核 release 暂时没有
+发布它，可以在板子配置里设置 `KERNEL_DTB_FROM_BASE_IMAGE="true"`，构建时
+保留基础镜像 boot 分区里的 DTB。等内核 release 带上同名 DTB 后会自动改用
+内核 release 的版本。
+
 ## 2. 找到基础镜像
 
 从 `ophub/amlogic-s9xxx-armbian` 的 release 里找到板子对应的 Armbian 镜像，
@@ -39,6 +45,8 @@ BASE_IMAGE_ASSET_PATTERN="Armbian_*_rockchip_<board>_noble_*_server_*.img.gz"
 BASE_IMAGE_SHA256="<sha256>"
 
 KERNEL_DTB="rk3399-<board>-otg.dtb"   # 内核 release 里必须存在
+# 或者，DTB 只在基础镜像里时：
+# KERNEL_DTB_FROM_BASE_IMAGE="true"
 ONE_KVM_ENABLED="true"
 ```
 
@@ -51,6 +59,7 @@ ONE_KVM_ENABLED="true"
 | `KERNEL_REPO` | `OpenNexusCN/rk-linux-6.18.y` | 内核 release 仓库 |
 | `KERNEL_RELEASE` | `latest` | 固定内核 release tag 可写成 `V...` |
 | `KERNEL_DTB` | 无 | 必须填写，脚本会校验 kernel bundle 中存在 |
+| `KERNEL_DTB_FROM_BASE_IMAGE` | `false` | 为 `true` 时，若 kernel bundle 没有该 DTB，则保留基础镜像 boot 分区里的 DTB（参考 `boards/nanopc-t4.conf`） |
 | `KERNEL_MODULES_FALLBACK` | `true` | release 没有 modules 时从源码重编译 |
 | `IMAGE_EXTRA_MB` | `1024` | 构建时给 rootfs 扩容的 MiB 数 |
 | `PRUNE_OLD_KERNEL` | `false` | 是否删除基础镜像自带内核 |
@@ -79,6 +88,14 @@ components/<board-id>/
 ```
 
 参考 `components/README.md`。
+
+如果只需要在构建时修改基础镜像里的 DTB（例如 NanoPC-T4 的 USB OTG
+配置），把它放进 `components/<board-id>/pre-install.d/`：先用
+`dtc -I dtb -O dts` 反编译 `$BOOT/dtb/rockchip/<board>.dtb`，追加一个
+用 `&{/path}` 引用节点的 DTS fragment，再用 `dtc -I dts -O dtb` 编译
+并校验。参考
+`components/nanopc-t4/pre-install.d/10-usb-otg-dts.sh` 和
+`components/nanopc-t4/dts/otg-fragment.dtsi`。
 
 ## 4.1 Wi-Fi AP 与 APT 定制
 

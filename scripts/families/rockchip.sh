@@ -212,6 +212,22 @@ family_cleanup() {
 # Kernel / DTB / modules
 # ---------------------------------------------------------------------------
 
+# _dtb_available <bundle_dtb> <boot_dtb> <from_base_image>
+#
+# A DTB is usable when the kernel bundle ships it, or when the board opts in
+# to keeping the base image DTB (KERNEL_DTB_FROM_BASE_IMAGE=true) and that
+# file already exists on the boot partition.
+_dtb_available() {
+    local bundle_dtb="$1" boot_dtb="$2" from_base="${3:-false}"
+    if [ -f "$bundle_dtb" ]; then
+        return 0
+    fi
+    if [ "$from_base" = "true" ] && [ -f "$boot_dtb" ]; then
+        return 0
+    fi
+    return 1
+}
+
 family_install_kernel() {
     local KVER="$KERNEL_VERSION"
     [ -f "${KERNEL_BUNDLE}/${KERNEL_IMAGE}" ] || die "Missing ${KERNEL_IMAGE}"
@@ -233,13 +249,26 @@ family_install_kernel() {
     fi
 
     mkdir -p "${BOOT_MNT}/dtb/rockchip"
+    local bundle_dtb="${KERNEL_BUNDLE}/${KERNEL_DTB}"
+    local boot_dtb="${BOOT_MNT}/dtb/rockchip/${KERNEL_DTB}"
+    _dtb_available "$bundle_dtb" "$boot_dtb" \
+        "${KERNEL_DTB_FROM_BASE_IMAGE:-false}" \
+        || die "Selected DTB ${KERNEL_DTB} is not usable: not in the kernel bundle and not kept from the base image (KERNEL_DTB_FROM_BASE_IMAGE=${KERNEL_DTB_FROM_BASE_IMAGE:-false})"
+    if [ ! -f "$bundle_dtb" ]; then
+        info "Keeping the base image DTB ${KERNEL_DTB}"
+        KERNEL_DTB_SOURCE="base-image"
+    fi
+
     shopt -s nullglob
     local dtbs=("${KERNEL_BUNDLE}"/*.dtb)
     shopt -u nullglob
     [ "${#dtbs[@]}" -gt 0 ] || die "No DTBs in the kernel bundle"
     cp -f "${dtbs[@]}" "${BOOT_MNT}/dtb/rockchip/"
-    [ -f "${BOOT_MNT}/dtb/rockchip/${KERNEL_DTB}" ] \
-        || die "Selected DTB ${KERNEL_DTB} is not in the kernel bundle"
+    [ -f "$boot_dtb" ] \
+        || die "Selected DTB ${KERNEL_DTB} is missing after installing the kernel"
+    if [ -f "$bundle_dtb" ]; then
+        KERNEL_DTB_SOURCE="kernel-release"
+    fi
 
     local module_tmp
     module_tmp="$(mktemp -d "${WORK}/modules.XXXXXX")"

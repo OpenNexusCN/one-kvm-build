@@ -72,6 +72,33 @@ U-Boot 的 `boot.scr` 会读取 `armbianEnv.txt` 的 `fdtfile`，加载
 - `/boot/extlinux/extlinux.conf` 的 `LINUX /Image`、`FDT ...`、`INITRD /uInitrd`；
 - `/boot/uInitrd` 和 `/boot/uInitrd-<ver>`（`mkimage -T ramdisk`）。
 
+如果内核 release 没有发布某个板子的 DTB（当前
+`OpenNexusCN/rk-linux-6.18.y` release 只有 FMX1 的 DTB），板子可以设置
+`KERNEL_DTB_FROM_BASE_IMAGE="true"`：构建会保留基础镜像 boot 分区里已有的
+同名 DTB（NanoPC-T4 的 `rk3399-nanopc-t4.dtb` 已把 USB-C 配成 OTG）。
+kernel bundle 里一旦出现同名 DTB，则自动改用 bundle 中的版本；manifest
+的 `kernel.dtb_source` 记录实际来源。
+
+NanoPC-T4 的 `components/nanopc-t4/pre-install.d/10-usb-otg-dts.sh`
+会在构建时先把基础镜像 DTB 反编译成 DTS（`dtc -I dtb -O dts`），追加
+`components/nanopc-t4/dts/otg-fragment.dtsi`，再用 `dtc -I dts -O dtb`
+重新编译并校验属性。fragment 用 `&{/path}` 引用节点，不需要 DTS label：
+保留 `dr_mode="otg"`（改成 `peripheral` 会让 RK3399 PHY 强制 GRF IDDIG
+override，破坏 D+ 上拉），给 dwc3 加 `usb-role-switch` 和
+`role-switch-default-mode="peripheral"`，并给 FUSB302 增加一个
+sink-only 的 `usb-c-connector`（`data-role=device`、`pd-disable`），让
+TCPM 在 CC 上呈现 Rd 并驱动角色切换。
+
+这个 hook 还会检查内核 config 和模块树，缺少以下任一 gadget 时直接让
+构建失败，保证模拟光驱和鼠标键盘可用：
+
+- `CONFIG_USB_GADGET`、`CONFIG_CONFIGFS_FS`、`CONFIG_USB_CONFIGFS`
+- `CONFIG_USB_F_HID`（虚拟键盘/鼠标）
+- `CONFIG_USB_F_MASS_STORAGE`（虚拟光驱/磁盘）
+- `CONFIG_USB_F_UVC`（视频）
+
+这样 `/sys/class/udc` 会出现控制器，One-KVM 才能绑定 HID/MSD/UVC。
+
 initramfs 在 chroot 里用目标 rootfs 的 `update-initramfs -c -k <ver>`
 重建（qemu-user-static + binfmt_misc），保证它和新内核模块匹配。
 

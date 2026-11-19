@@ -17,6 +17,7 @@ components/
 └── <board-id>/              # applied only to boards/<board-id>.conf
     ├── rootfs/
     ├── boot/
+    ├── dts/                 # optional DTS fragments used by hooks
     ├── pre-install.d/
     └── post-install.d/
 ```

@@ -44,10 +44,12 @@ for config in "${files[@]}"; do
             --arg base_pattern "${BASE_IMAGE_ASSET_PATTERN:-}" \
             --arg base_url "${BASE_IMAGE_URL:-}" \
             --arg dtb "${KERNEL_DTB:-}" \
+            --arg dtb_from_base "${KERNEL_DTB_FROM_BASE_IMAGE:-false}" \
             --arg onekvm "${ONE_KVM_ENABLED:-true}" \
             --arg onekvm_pattern "${ONE_KVM_ASSET_PATTERN:-}" \
             '{id: $id, name: $name, family: $family, base_repo: $base_repo,
               base_pattern: $base_pattern, base_url: $base_url, dtb: $dtb,
+              dtb_from_base: $dtb_from_base,
               onekvm: $onekvm, onekvm_pattern: $onekvm_pattern}'
     )" || { err "${config}: cannot be sourced"; continue; }
 
@@ -58,6 +60,7 @@ for config in "${files[@]}"; do
     base_pattern="$(printf '%s' "$meta" | jq -r '.base_pattern')"
     base_url="$(printf '%s' "$meta" | jq -r '.base_url')"
     dtb="$(printf '%s' "$meta" | jq -r '.dtb')"
+    dtb_from_base="$(printf '%s' "$meta" | jq -r '.dtb_from_base')"
     onekvm="$(printf '%s' "$meta" | jq -r '.onekvm')"
     onekvm_pattern="$(printf '%s' "$meta" | jq -r '.onekvm_pattern')"
 
@@ -72,6 +75,10 @@ for config in "${files[@]}"; do
         [ -n "$base_pattern" ] || err "${config}: BASE_IMAGE_ASSET_PATTERN is empty"
     fi
     [[ "$dtb" == *.dtb ]] || err "${config}: KERNEL_DTB must name a .dtb file"
+    case "$dtb_from_base" in
+        true|false) ;;
+        *) err "${config}: KERNEL_DTB_FROM_BASE_IMAGE must be true or false" ;;
+    esac
     if [ "$onekvm" = "true" ]; then
         [ -n "$onekvm_pattern" ] || err "${config}: ONE_KVM_ASSET_PATTERN is empty"
     fi
