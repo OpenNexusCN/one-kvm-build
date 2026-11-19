@@ -128,8 +128,8 @@ make list
 ```
 
 其中 19 块默认启用；其余 23 块已生成配置但 `ENABLED="false"`，等对应
-USB OTG 口在真机验证后再打开。内核仓库会为每块有 DTS 的板子发布
-stock 和 `-otg` 两个 DTB。
+USB OTG 口在真机验证后再打开。内核仓库会为每块有 DTS 的板子发布一个
+包含 stock DTS 的 `-otg` DTB。
 
 板子配置在 `boards/*.conf`，全局默认在 `config/defaults.conf`。
 

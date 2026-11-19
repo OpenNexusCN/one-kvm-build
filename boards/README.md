@@ -31,10 +31,10 @@ feature works.  Like nanopc-t4, this board uses
 ## Batch RK3399 boards
 
 `boards/*.conf` also contains the full RK3399 set from the ophub model
-database (42 boards).  The kernel repository publishes both the stock and
-an `-otg` DTB for each board that has a kernel DTS; the `-otg` variant
-enables the maskrom/flashing USB OTG port with the same role-switch setup
-as the boards above.
+database (42 boards).  For each board that has a kernel DTS, the kernel
+repository publishes an `-otg` DTB; the variant includes the stock DTS and
+enables the maskrom/flashing USB OTG port with the same role-switch setup as
+the boards above.
 
 Currently enabled for `--boards all` (19):
 
