@@ -28,6 +28,36 @@ trixie image ships the matching brcmfmac firmware, so the default Wi-Fi AP
 feature works.  Like nanopc-t4, this board uses
 `ANDROID_SCRCPY_MODE="distro"` with `trixie-backports` for scrcpy 3.3.4.
 
+## Batch RK3399 boards
+
+`boards/*.conf` also contains the full RK3399 set from the ophub model
+database (42 boards).  The kernel repository publishes both the stock and
+an `-otg` DTB for each board that has a kernel DTS; the `-otg` variant
+enables the maskrom/flashing USB OTG port with the same role-switch setup
+as the boards above.
+
+Currently enabled for `--boards all` (19):
+
+```text
+aio-3399c  aio-3399c-ai  dlfr100  eaidk-610  firefly-jd4  firefly-rk3399
+fmx1-pro  fmx1-pro-b  kylin3399  leez  lzk4  nanopc-t4  nanopi-som
+sw799  taram  tps781  tvi3315a  xiaobao  zk-r39a
+```
+
+Added but `ENABLED="false"` until the USB OTG port is verified on hardware
+(23):
+
+```text
+ai3399-c  aio-3399b  crrc  dg3399  emb3531  fine3399  gea-6319  h339pc
+hd9901  hs530r  hugsun-x99  king3399  lx-r3s  smart-am40  sv-33a6x
+sv-33a6x-vpu  sz3390  tb-ls3399  tn3399  tpm312  yskj  zcube1-max  zysj
+```
+
+HD9901 has no DTS in the kernel source yet, so it keeps the base image DTB
+(`KERNEL_DTB_FROM_BASE_IMAGE=true`).  To test a disabled board, set
+`ENABLED="true"` in its config (and adjust the chosen OTG controller if the
+maskrom port is wired to DWC3_1).
+
 ## nanopc-t4 note
 
 The kernel repository provides

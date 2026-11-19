@@ -40,7 +40,18 @@ check "matrix selection" bash -c '
 '
 check "matrix all" bash -c '
     out="$(bash scripts/prepare-matrix.sh --boards all)"
-    printf "%s" "$out" | jq -e "length >= 2" >/dev/null
+    printf "%s" "$out" | jq -e "length >= 10" >/dev/null
+'
+check "matrix eaidk-610" bash -c '
+    out="$(bash scripts/prepare-matrix.sh --boards eaidk-610)"
+    printf "%s" "$out" | jq -e "length == 1 and .[0].board == \"eaidk-610\"" >/dev/null
+'
+check "eaidk-610 batch config" bash -c '
+    source config/defaults.conf
+    source boards/eaidk-610.conf
+    [ "$KERNEL_DTB" = "rk3399-eaidk-610-otg.dtb" ]
+    [ "$ANDROID_SCRCPY_MODE" = "distro" ]
+    [ "$ENABLED" = "true" ]
 '
 check "matrix nanopc-t4" bash -c '
     out="$(bash scripts/prepare-matrix.sh --boards nanopc-t4)"

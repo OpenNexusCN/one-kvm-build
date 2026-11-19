@@ -121,6 +121,16 @@ sudo -E bash scripts/build-image.sh \
 | `nanopc-t4` | RK3399 | ophub Armbian trixie `nanopc-t4` | `rk3399-nanopc-t4-otg.dtb`（内核仓库提供） | USB-C OTG，HID/虚拟光驱/UVC |
 | `sw799` | RK3399 | ophub Armbian trixie `sw799` | `rk3399-bozz-sw799-otg.dtb`（内核仓库提供） | J23 micro-USB OTG，HID/虚拟光驱/UVC |
 
+完整列表还包括 ophub model database 里的全部 42 块 RK3399 板：
+
+```text
+make list
+```
+
+其中 19 块默认启用；其余 23 块已生成配置但 `ENABLED="false"`，等对应
+USB OTG 口在真机验证后再打开。内核仓库会为每块有 DTS 的板子发布
+stock 和 `-otg` 两个 DTB。
+
 板子配置在 `boards/*.conf`，全局默认在 `config/defaults.conf`。
 
 ## 关键设计
