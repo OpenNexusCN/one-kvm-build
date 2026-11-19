@@ -45,11 +45,14 @@ for config in "${files[@]}"; do
             --arg base_url "${BASE_IMAGE_URL:-}" \
             --arg dtb "${KERNEL_DTB:-}" \
             --arg dtb_from_base "${KERNEL_DTB_FROM_BASE_IMAGE:-false}" \
+            --arg scrcpy_mode "${ANDROID_SCRCPY_MODE:-prebuilt}" \
+            --arg scrcpy_suite "${ANDROID_SCRCPY_APT_SUITE:-}" \
             --arg onekvm "${ONE_KVM_ENABLED:-true}" \
             --arg onekvm_pattern "${ONE_KVM_ASSET_PATTERN:-}" \
             '{id: $id, name: $name, family: $family, base_repo: $base_repo,
               base_pattern: $base_pattern, base_url: $base_url, dtb: $dtb,
               dtb_from_base: $dtb_from_base,
+              scrcpy_mode: $scrcpy_mode, scrcpy_suite: $scrcpy_suite,
               onekvm: $onekvm, onekvm_pattern: $onekvm_pattern}'
     )" || { err "${config}: cannot be sourced"; continue; }
 
@@ -61,6 +64,8 @@ for config in "${files[@]}"; do
     base_url="$(printf '%s' "$meta" | jq -r '.base_url')"
     dtb="$(printf '%s' "$meta" | jq -r '.dtb')"
     dtb_from_base="$(printf '%s' "$meta" | jq -r '.dtb_from_base')"
+    scrcpy_mode="$(printf '%s' "$meta" | jq -r '.scrcpy_mode')"
+    scrcpy_suite="$(printf '%s' "$meta" | jq -r '.scrcpy_suite')"
     onekvm="$(printf '%s' "$meta" | jq -r '.onekvm')"
     onekvm_pattern="$(printf '%s' "$meta" | jq -r '.onekvm_pattern')"
 
@@ -79,6 +84,14 @@ for config in "${files[@]}"; do
         true|false) ;;
         *) err "${config}: KERNEL_DTB_FROM_BASE_IMAGE must be true or false" ;;
     esac
+    case "$scrcpy_mode" in
+        prebuilt|distro) ;;
+        *) err "${config}: ANDROID_SCRCPY_MODE must be prebuilt or distro" ;;
+    esac
+    if [ -n "$scrcpy_suite" ]; then
+        [[ "$scrcpy_suite" =~ ^[a-z0-9][a-z0-9-]*$ ]] \
+            || err "${config}: ANDROID_SCRCPY_APT_SUITE is not a valid apt suite"
+    fi
     if [ "$onekvm" = "true" ]; then
         [ -n "$onekvm_pattern" ] || err "${config}: ONE_KVM_ASSET_PATTERN is empty"
     fi

@@ -248,12 +248,18 @@ Web UI 里也内置了挂载时的 ISO 转换：它调用 `xorriso` 并依赖内
 
 - apt 包（`ANDROID_TOOLS_PACKAGES`）：`adb`、
   `android-sdk-platform-tools-common`（USB udev 规则）、`ffmpeg`，以及
-  FFmpeg/SDL2/libusb 开发包、`meson`、`ninja-build`、`pkg-config`；
-- **不安装 Ubuntu 仓库的 `scrcpy` 1.25**（在 Android 14+ 上会崩溃）；
-- 唯一客户端：`3rd/scrcpy-3.3-aarch64/scrcpy` 安装为
-  `/usr/local/bin/scrcpy`，配套服务端安装为
-  `/usr/local/share/scrcpy/scrcpy-server`；构建时校验 SHA256 和
-  aarch64 架构；
+  scrcpy 需要的运行时库 `libsdl2-2.0-0`、`libusb-1.0-0`；**不安装**
+  `*-dev`/meson/ninja 等构建包（它们在 trixie 上会通过 `libsdl2-dev`
+  拉入 `libdrm-dev`，与 Armbian 的 `libdrm2` 版本冲突）；
+- scrcpy 有两种来源（`ANDROID_SCRCPY_MODE`）：
+  - `prebuilt`（默认，noble/FMX1）：`3rd/scrcpy-3.3-aarch64/scrcpy`
+    安装为 `/usr/local/bin/scrcpy`，配套服务端安装为
+    `/usr/local/share/scrcpy/scrcpy-server`；构建时校验 SHA256 和
+    aarch64 架构；
+  - `distro`（trixie/NanoPC-T4）：安装发行版 `scrcpy` 包，通过
+    `ANDROID_SCRCPY_APT_SUITE="trixie-backports"` 从 backports 取
+    3.3.4（`/usr/bin/scrcpy`）。预编译客户端链接的是 noble 的 FFmpeg 6
+    SONAME，无法在 trixie 的 FFmpeg 7 上运行；
 - 用法示例（板子无桌面环境时录制）：
   ```bash
   adb devices

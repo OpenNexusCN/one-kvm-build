@@ -65,6 +65,8 @@ ONE_KVM_ENABLED="true"
 | `ONE_KVM_ENABLED` | `true` | 是否安装 One-KVM |
 | `ONE_KVM_REPO` | `zoneBen/One-KVM` | One-KVM release 仓库 |
 | `ONE_KVM_ASSET_PATTERN` | `one-kvm_*_arm64.deb` | deb 资产匹配 |
+| `ANDROID_SCRCPY_MODE` | `prebuilt` | `prebuilt` 使用 3rd 的预编译 3.3；`distro` 安装发行版 scrcpy 包（例：trixie） |
+| `ANDROID_SCRCPY_APT_SUITE` | 空 | 为 `distro` 模式指定 apt suite，例如 `trixie-backports` |
 | `APT_PACKAGES` | 空 | 额外安装的 apt 包（空格分隔） |
 | `WIFI_AP_ENABLED` | `true` | 是否配置 Wi-Fi AP/强制门户 |
 | `WIFI_AP_SSID_PREFIX` | `OneKVM-` | SSID 前缀，后面自动追加 6 位设备 HASH |

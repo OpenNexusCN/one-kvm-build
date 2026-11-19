@@ -145,6 +145,15 @@ ROOT_MNT="${WORK}/root"
 BOOT_MNT=""
 KERNEL_BUNDLE=""
 KERNEL_DTB_SOURCE=""
+ANDROID_SCRCPY_SOURCE="3rd/scrcpy-3.3-aarch64"
+ANDROID_SCRCPY_CLIENT="/usr/local/bin/scrcpy"
+ANDROID_SCRCPY_SERVER="/usr/local/share/scrcpy/scrcpy-server"
+if [ "${ANDROID_SCRCPY_MODE:-prebuilt}" = "distro" ]; then
+    ANDROID_SCRCPY_SOURCE="distro:${ANDROID_SCRCPY_DISTRO_PACKAGE:-scrcpy}"
+    ANDROID_SCRCPY_CLIENT="/usr/bin/scrcpy"
+    # The Debian package embeds the server in the client.
+    ANDROID_SCRCPY_SERVER=""
+fi
 mkdir -p "$WORK" "$OUT"
 if [ "$KEEP_WORK" != "true" ]; then
     rm -rf "${WORK:?}/"*
@@ -359,6 +368,8 @@ install_one_kvm() {
 
 install_extra_packages() {
     local packages="${APT_PACKAGES:-} ${ARG_APT_PACKAGES:-}"
+    local suite="${ANDROID_SCRCPY_APT_SUITE:-}"
+    local suite_packages=""
     if [ "${WIFI_AP_ENABLED:-true}" = "true" ]; then
         packages+=" ${WIFI_AP_PACKAGES:-hostapd dnsmasq lighttpd iw}"
     fi
@@ -367,11 +378,23 @@ install_extra_packages() {
     fi
     if [ "${ANDROID_TOOLS_ENABLED:-true}" = "true" ]; then
         packages+=" ${ANDROID_TOOLS_PACKAGES:-adb ffmpeg}"
+        if [ "${ANDROID_SCRCPY_MODE:-prebuilt}" = "distro" ]; then
+            if [ -n "$suite" ]; then
+                suite_packages="${ANDROID_SCRCPY_DISTRO_PACKAGE:-scrcpy}"
+            else
+                packages+=" ${ANDROID_SCRCPY_DISTRO_PACKAGE:-scrcpy}"
+            fi
+        fi
+    fi
+    local -a extra=()
+    if [ -n "$suite_packages" ]; then
+        extra+=(--suite "$suite" --suite-packages "$suite_packages")
     fi
     bash "${SCRIPT_DIR}/features/apt-install.sh" \
         --root "$ROOT_MNT" \
         --packages "$packages" \
-        --recommends "${APT_INSTALL_RECOMMENDS:-false}"
+        --recommends "${APT_INSTALL_RECOMMENDS:-false}" \
+        "${extra[@]}"
 }
 
 configure_wifi_ap() {
@@ -410,7 +433,9 @@ configure_android_tools() {
         info "Android tools installation disabled"
         return 0
     fi
-    bash "${SCRIPT_DIR}/features/android-tools.sh" --root "$ROOT_MNT"
+    bash "${SCRIPT_DIR}/features/android-tools.sh" \
+        --root "$ROOT_MNT" \
+        --mode "${ANDROID_SCRCPY_MODE:-prebuilt}"
 }
 
 # ---------------------------------------------------------------------------
@@ -445,7 +470,10 @@ write_image_manifest() {
         --arg android_tools_enabled "${ANDROID_TOOLS_ENABLED:-true}" \
         --arg android_tools_packages "${ANDROID_TOOLS_PACKAGES:-adb ffmpeg}" \
         --arg android_scrcpy_version "${ANDROID_SCRCPY_VERSION:-3.3}" \
-        --arg android_scrcpy_source "3rd/scrcpy-3.3-aarch64" \
+        --arg android_scrcpy_mode "${ANDROID_SCRCPY_MODE:-prebuilt}" \
+        --arg android_scrcpy_source "$ANDROID_SCRCPY_SOURCE" \
+        --arg android_scrcpy_client "$ANDROID_SCRCPY_CLIENT" \
+        --arg android_scrcpy_server "$ANDROID_SCRCPY_SERVER" \
         --arg commit "${GITHUB_SHA:-local}" \
         --arg run "${GITHUB_RUN_ID:-local}" \
         '{board: $board, board_name: $board_name, build_version: $version,
@@ -464,9 +492,10 @@ write_image_manifest() {
           android_tools: {enabled: $android_tools_enabled,
                           packages: $android_tools_packages,
                           scrcpy_version: $android_scrcpy_version,
+                          scrcpy_mode: $android_scrcpy_mode,
                           scrcpy_source: $android_scrcpy_source,
-                          client: "/usr/local/bin/scrcpy",
-                          server: "/usr/local/share/scrcpy/scrcpy-server"}}' \
+                          client: $android_scrcpy_client,
+                          server: $android_scrcpy_server}}' \
         >"${ROOT_MNT}/etc/one-kvm-build/build.json"
 }
 
@@ -599,7 +628,10 @@ jq -n \
     --arg android_tools_enabled "${ANDROID_TOOLS_ENABLED:-true}" \
     --arg android_tools_packages "${ANDROID_TOOLS_PACKAGES:-adb ffmpeg}" \
     --arg android_scrcpy_version "${ANDROID_SCRCPY_VERSION:-3.3}" \
-    --arg android_scrcpy_source "3rd/scrcpy-3.3-aarch64" \
+    --arg android_scrcpy_mode "${ANDROID_SCRCPY_MODE:-prebuilt}" \
+    --arg android_scrcpy_source "$ANDROID_SCRCPY_SOURCE" \
+    --arg android_scrcpy_client "$ANDROID_SCRCPY_CLIENT" \
+    --arg android_scrcpy_server "$ANDROID_SCRCPY_SERVER" \
     --arg built_at "$(utc_now)" \
     '{board: $board, build_version: $version, built_at: $built_at,
       base_image: {name: $base_image, sha256: $base_sha, release: $base_release,
@@ -617,9 +649,10 @@ jq -n \
       android_tools: {enabled: $android_tools_enabled,
                       packages: $android_tools_packages,
                       scrcpy_version: $android_scrcpy_version,
+                      scrcpy_mode: $android_scrcpy_mode,
                       scrcpy_source: $android_scrcpy_source,
-                      client: "/usr/local/bin/scrcpy",
-                      server: "/usr/local/share/scrcpy/scrcpy-server"}}' \
+                      client: $android_scrcpy_client,
+                      server: $android_scrcpy_server}}' \
     >"${OUT}/manifest-${BOARD_ID}.json"
 
 family_cleanup

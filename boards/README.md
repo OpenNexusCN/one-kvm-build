@@ -23,6 +23,12 @@ on CC.  This exposes a UDC for One-KVM's HID (virtual keyboard/mouse),
 mass-storage (virtual CD-ROM) and UVC gadgets.  The kernel CI builds and
 publishes `rk3399-nanopc-t4-otg.dtb`; one-kvm-build only consumes it.
 
+Debian trixie uses FFmpeg 7, while the prebuilt `3rd/scrcpy-3.3-aarch64`
+client was linked against noble's FFmpeg 6.  This board therefore sets
+`ANDROID_SCRCPY_MODE="distro"` and `ANDROID_SCRCPY_APT_SUITE="trixie-backports"`,
+installing scrcpy 3.3.4 from the backports suite that is already enabled in
+the Armbian image.
+
 ## fmx1-pro-b note
 
 The kernel provides `rk3399-fmx1-pro-b.dtb` for the B revision, but no

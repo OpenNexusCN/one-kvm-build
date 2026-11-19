@@ -131,8 +131,12 @@ AP 客户端只能访问本机；镜像不做 NAT，避免把设备变成开放�
 - 启用 AP 时的 `WIFI_AP_PACKAGES`（hostapd、dnsmasq、lighttpd、iw）；
 - 启用 ISO 修复工具时的 `ISO_FIX_PACKAGES`（xorriso、genisoimage、udftools）；
 - 启用 Android 工具时的 `ANDROID_TOOLS_PACKAGES`（adb、udev 规则、ffmpeg
-  及 FFmpeg/SDL2/libusb 开发包、meson/ninja/pkg-config）；Ubuntu 仓库的
-  scrcpy 1.25 **不安装**，客户端由 3rd 的预编译 3.3 提供。
+  以及 SDL2/libusb 运行时库）；不安装 `-dev` 构建包，避免 trixie 上
+  `libsdl2-dev → libdrm-dev → libdrm2` 与 Armbian 的 libdrm2 版本冲突。
+  scrcpy 来源由 `ANDROID_SCRCPY_MODE` 选择：noble/FMX1 使用 3rd 的预编译
+  3.3；trixie/NanoPC-T4 使用 `scrcpy` 发行版包（通过
+  `ANDROID_SCRCPY_APT_SUITE=trixie-backports` 取 3.3.4），因为预编译
+  客户端依赖 noble 的 FFmpeg 6 SONAME，不能用于 trixie 的 FFmpeg 7。
 
 安装时临时写入 `/usr/sbin/policy-rc.d`（exit 101），避免 maintainer
 脚本在 chroot 里启动服务；安装完成后恢复。包名有白名单校验，默认

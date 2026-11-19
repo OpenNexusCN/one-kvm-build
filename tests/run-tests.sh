@@ -53,6 +53,12 @@ check "nanopc-t4 kernel dtb config" bash -c '
     [ "$KERNEL_DTB_FROM_BASE_IMAGE" = "false" ]
     [ "$BASE_IMAGE_SHA256" = "8857b0ad5a3df28d0bda10bc13b2c71b9543b735d408fa09da9d86b8f23f1bb0" ]
 '
+check "nanopc-t4 scrcpy distro config" bash -c '
+    source config/defaults.conf
+    source boards/nanopc-t4.conf
+    [ "$ANDROID_SCRCPY_MODE" = "distro" ]
+    [ "$ANDROID_SCRCPY_APT_SUITE" = "trixie-backports" ]
+'
 check "dtb fallback helper" bash -c '
     source scripts/families/rockchip.sh
     d="$(mktemp -d)"
@@ -210,6 +216,24 @@ check "android tools reject tampered client" bash -c "
         --source '${tmp}/tampered-scrcpy' \
         --skip-deps-check >/dev/null 2>&1
 "
+check "android tools distro mode" bash -c "
+    mkdir -p '${tmp}/android-distro-root'
+    bash scripts/features/android-tools.sh \
+        --root '${tmp}/android-distro-root' \
+        --mode distro \
+        --skip-deps-check
+    test ! -e '${tmp}/android-distro-root/usr/local/bin/scrcpy'
+"
+check "apt suite requires suite name" bash -c "
+    mkdir -p '${tmp}/apt-root'
+    ! bash scripts/features/apt-install.sh \
+        --root '${tmp}/apt-root' \
+        --suite-packages scrcpy >/dev/null 2>&1
+"
+check "android packages exclude dev packages" bash -c '
+    source config/defaults.conf
+    case " $ANDROID_TOOLS_PACKAGES " in *-dev*) exit 1 ;; esac
+'
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

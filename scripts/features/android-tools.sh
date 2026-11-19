@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Install adb + scrcpy support into a mounted target root filesystem.
 #
-# The distro scrcpy (1.25 on noble) crashes against Android 14+, so the
-# image ships the prebuilt scrcpy 3.3 client and its matching server from
-# 3rd/scrcpy-3.3-aarch64 instead of installing the scrcpy apt package.
-# The remaining apt packages (adb, ffmpeg, SDL2/FFmpeg runtime/build
-# dependencies, meson/ninja) are installed separately by
-# scripts/features/apt-install.sh.
+# Two scrcpy sources are supported:
+#   prebuilt - the client from 3rd/scrcpy-3.3-aarch64 (built against noble's
+#              FFmpeg 6 ABI), installed to /usr/local/bin.
+#   distro   - the distribution scrcpy package, used on Debian trixie where
+#              FFmpeg 7 is not ABI-compatible with the prebuilt client
+#              (trixie-backports provides scrcpy 3.3.4).
 #
-# The 3.3 client goes to /usr/local/bin; no other scrcpy binary is present.
+# The distro scrcpy 1.25 on noble crashes against Android 14+, which is why
+# noble boards use the prebuilt client.  adb, ffmpeg and the runtime
+# libraries are installed separately by scripts/features/apt-install.sh.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,19 +22,25 @@ usage() {
 Usage: android-tools.sh --root DIR [options]
 
 Options:
-  --source DIR        Prebuilt scrcpy tree (default: 3rd/scrcpy-3.3-aarch64)
-  --skip-deps-check   Do not verify adb/ffmpeg packages inside ROOT
+  --mode prebuilt|distro   scrcpy source (default: prebuilt)
+  --source DIR             Prebuilt scrcpy tree (prebuilt mode)
+  --min-version VERSION    Minimum scrcpy version (distro mode, default: 3.3)
+  --skip-deps-check        Do not verify packages/libraries inside ROOT
 EOF
 }
 
 ROOT=""
 SOURCE=""
+MODE="prebuilt"
+MIN_VERSION="3.3"
 SKIP_DEPS="false"
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --root) ROOT="${2:-}"; shift 2 ;;
+        --mode) MODE="${2:-}"; shift 2 ;;
         --source) SOURCE="${2:-}"; shift 2 ;;
+        --min-version) MIN_VERSION="${2:-}"; shift 2 ;;
         --skip-deps-check) SKIP_DEPS="true"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" ;;
@@ -42,6 +50,52 @@ done
 [ -n "$ROOT" ] || die "--root is required"
 [ -d "$ROOT" ] || die "Root filesystem not found: $ROOT"
 ROOT="$(cd "$ROOT" && pwd)"
+case "$MODE" in
+    prebuilt|distro) ;;
+    *) die "--mode must be prebuilt or distro" ;;
+esac
+
+check_packages() {
+    require_cmd dpkg-query
+    local pkg status
+    for pkg in "$@"; do
+        status="$(dpkg-query --root="$ROOT" -W -f='${Status}' "$pkg" 2>/dev/null || true)"
+        case "$status" in
+            *"install ok installed"*) ;;
+            *) die "Package ${pkg} is not installed in the target root" ;;
+        esac
+    done
+}
+
+# SONAMEs of the prebuilt client, as reported by `readelf -d`.  A base image
+# with a newer FFmpeg/SDL2 would otherwise install fine and fail only at
+# runtime on the device.
+check_runtime_libs() {
+    local lib found
+    for lib in libavformat.so.60 libavcodec.so.60 libavutil.so.58 \
+               libswresample.so.4 libSDL2-2.0.so.0 libavdevice.so.60 \
+               libusb-1.0.so.0; do
+        found="$(find "$ROOT/usr/lib" "$ROOT/lib" -maxdepth 3 \
+            -name "${lib}*" -print -quit 2>/dev/null || true)"
+        [ -n "$found" ] || die "Missing runtime library ${lib} for the prebuilt scrcpy"
+    done
+}
+
+if [ "$MODE" = "distro" ]; then
+    ver=""
+    if [ "$SKIP_DEPS" != "true" ]; then
+        check_packages adb ffmpeg scrcpy
+        ver="$(dpkg-query --root="$ROOT" -W -f='${Version}' scrcpy 2>/dev/null || true)"
+        [ -n "$ver" ] || die "scrcpy package is not installed in the target root"
+        if [ -n "$MIN_VERSION" ] \
+            && ! dpkg --compare-versions "$ver" ge "$MIN_VERSION"; then
+            die "scrcpy ${ver} is older than ${MIN_VERSION}"
+        fi
+    fi
+    info "Using distribution scrcpy package (${ver:-unknown}); no prebuilt client installed"
+    exit 0
+fi
+
 SOURCE="${SOURCE:-${REPO_ROOT}/3rd/scrcpy-3.3-aarch64}"
 [ -d "$SOURCE" ] || die "scrcpy source directory not found: $SOURCE"
 SOURCE="$(cd "$SOURCE" && pwd)"
@@ -63,34 +117,8 @@ case "$arch" in
     *) die "scrcpy is not an aarch64 binary: ${arch}" ;;
 esac
 
-check_deps() {
-    require_cmd dpkg-query
-    local pkg status
-    for pkg in adb ffmpeg; do
-        status="$(dpkg-query --root="$ROOT" -W -f='${Status}' "$pkg" 2>/dev/null || true)"
-        case "$status" in
-            *"install ok installed"*) ;;
-            *) die "Package ${pkg} is not installed in the target root (required by scrcpy)" ;;
-        esac
-    done
-}
-
-# SONAMEs of the prebuilt client, as reported by `readelf -d`.  A base image
-# with a newer FFmpeg/SDL2 would otherwise install fine and fail only at
-# runtime on the device.
-check_runtime_libs() {
-    local lib found
-    for lib in libavformat.so.60 libavcodec.so.60 libavutil.so.58 \
-               libswresample.so.4 libSDL2-2.0.so.0 libavdevice.so.60 \
-               libusb-1.0.so.0; do
-        found="$(find "$ROOT/usr/lib" "$ROOT/lib" -maxdepth 3 \
-            -name "${lib}*" -print -quit 2>/dev/null || true)"
-        [ -n "$found" ] || die "Missing runtime library ${lib} for the prebuilt scrcpy"
-    done
-}
-
 if [ "$SKIP_DEPS" != "true" ]; then
-    check_deps
+    check_packages adb ffmpeg
     check_runtime_libs
 fi
 

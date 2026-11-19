@@ -285,18 +285,26 @@ scrcpy --version
 
 ## scrcpy 崩溃 / 录出 0 字节
 
-Ubuntu 仓库的 scrcpy 1.25 在 Android 14+ 上会因服务端反射调用失败而
-崩溃，因此镜像**不安装**该包，只提供预编译的 3.3。确认：
+scrcpy 的来源取决于基础镜像：
+
+- noble/FMX1：使用 `3rd/scrcpy-3.3-aarch64` 预编译客户端，路径为
+  `/usr/local/bin/scrcpy`。Ubuntu 仓库的 1.25 在 Android 14+ 上会崩溃，
+  因此镜像不安装它。
+- trixie/NanoPC-T4：预编译客户端链接的是 noble 的 FFmpeg 6 SONAME，无法在
+  trixie 的 FFmpeg 7 上运行；镜像改用 `ANDROID_SCRCPY_MODE=distro`，
+  从 `trixie-backports` 安装 scrcpy 3.3.4，路径为 `/usr/bin/scrcpy`。
+
+确认：
 
 ```bash
-command -v scrcpy          # 应为 /usr/local/bin/scrcpy
-scrcpy --version           # 3.3
-ls -l /usr/local/share/scrcpy/scrcpy-server
+command -v scrcpy
+scrcpy --version
+adb devices
 ```
 
-如果 `command -v scrcpy` 指向 `/usr/bin/scrcpy`，说明有人手动装了发行版
-包（或者用了旧镜像），移除它：
-`apt-get remove --purge scrcpy`。如果命令不存在，检查构建时是否设置了
+FMX1 上应指向 `/usr/local/bin/scrcpy`，NanoPC-T4 上应指向
+`/usr/bin/scrcpy`。如果 NanoPC-T4 上是 `/usr/local/bin/scrcpy`，说明用了
+旧的预编译客户端，重新构建即可。如果命令不存在，检查构建时是否设置了
 `ANDROID_TOOLS_ENABLED=false`。板子没有桌面环境时使用
 `--no-playback --record=...`。
 
