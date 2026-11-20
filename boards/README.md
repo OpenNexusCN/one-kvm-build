@@ -23,6 +23,13 @@ it.  The -otg variant enables `u2phy0_otg` and DWC3_0, keeps
 dwc3 role switch to `peripheral`, and limits the port to high-speed
 because J23 only exposes USB2 D+/D-.  DWC3_1 remains the stock host port.
 
+The -otg variant also enables the Rockchip VOPs (`vopb`/`vopl` and their
+IOMMUs).  The stock SW799 DTS leaves them disabled, so rockchip-drm never
+registers; MPP's DRM allocator then opens the panfrost card and One-KVM
+segfaults during encoder probing.  With the VOPs enabled, card0 is
+`rockchip-drm` and `/dev/mpp_service` works.  The other batch boards
+already enable VOPB in their stock DTS.
+
 The board has AP6236/AP6181-class SDIO Wi-Fi (`wifi@1` on `sdio0`); the
 trixie image ships the matching brcmfmac firmware, so the default Wi-Fi AP
 feature works.  Like nanopc-t4, this board uses

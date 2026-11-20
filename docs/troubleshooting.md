@@ -219,6 +219,34 @@ hantro `vpu`。fmx1 的 DTS 一直包含它；批量移植的 `-otg` DTS 现在�
 `ffmpeg -decoders | grep rkmpp`、One-KVM 的编码器设置，以及
 `/proc/mpp_service` 里的 session。
 
+还要确认 MPP 的 DRM 分配器用的是 Rockchip DRM，而不是 Mali/panfrost：
+
+```bash
+for c in /sys/class/drm/card*; do
+  echo -n "$(basename "$c"): "
+  cat "$c/device/uevent" | grep -E '^DRIVER='
+done
+dmesg | grep -iE 'rockchip-drm|No available vop'
+```
+
+预期 `card0: DRIVER=rockchip-drm`（panfrost 可以是 card1）。如果
+`card0` 是 panfrost，MPP 会报：
+
+```text
+mpp_drm: os_allocator_drm_alloc drm_alloc failed ret -1
+mpp_buffer: mpp_buffer_create failed ...
+one-kvm.service: Main process exited, status=11/SEGV
+```
+
+原因是 DTB 没有启用 Rockchip VOP，`rockchip-drm` 报
+`No available vop found for display-subsystem`，没有注册 card0。
+SW799 的 stock DTS 就是这种情况；`rk3399-bozz-sw799-otg.dts` 现在启用了
+`vopb`/`vopl` 和对应 IOMMU（不需要 HDMI 输出），rockchip-drm 会成为
+card0。其他批量移植的 `-otg` DTS 已经启用 VOPB，不需要这个补丁。
+
+修复后同样需要新的内核 release（或用新 DTB 替换
+`/boot/dtb/rockchip/rk3399-*-otg.dtb`）并重启。
+
 IEP（`/dev/iep`）是另一块图像增强单元，不负责 H.264/H.265 编解码，
 但 fmx1 的视频管线也启用了它：
 
