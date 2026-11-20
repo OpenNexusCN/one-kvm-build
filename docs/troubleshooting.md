@@ -219,6 +219,20 @@ hantro `vpu`。fmx1 的 DTS 一直包含它；批量移植的 `-otg` DTS 现在�
 `ffmpeg -decoders | grep rkmpp`、One-KVM 的编码器设置，以及
 `/proc/mpp_service` 里的 session。
 
+IEP（`/dev/iep`）是另一块图像增强单元，不负责 H.264/H.265 编解码，
+但 fmx1 的视频管线也启用了它：
+
+```bash
+fdtget -t s /boot/dtb/rockchip/rk3399-bozz-sw799-otg.dtb /iep@ff670000 status
+fdtget -t s /boot/dtb/rockchip/rk3399-bozz-sw799-otg.dtb /iommu@ff670800 status
+ls -l /dev/iep
+dmesg | grep -i iep
+```
+
+预期两个节点都是 `okay`，并出现 `/dev/iep`。它对应
+`arch/arm64/boot/dts/rockchip/rk3399-iep.dtsi`（去隔行、降噪、细节增强、
+缩放）；批量移植的 `-otg` DTS 已和 `rk3399-vpu.dtsi` 一起包含。
+
 ## Wi-Fi AP 没有启动
 
 检查：

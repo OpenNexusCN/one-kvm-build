@@ -34,9 +34,10 @@ feature works.  Like nanopc-t4, this board uses
 database (42 boards).  For each board that has a kernel DTS, the kernel
 repository publishes an `-otg` DTB; the variant includes the stock DTS and
 enables the maskrom/flashing USB OTG port with the same role-switch setup as
-the boards above.  The variants also include `rk3399-vpu.dtsi`, which
-registers the BSP MPP `mpp_srv`/`vepu`/`vdpu` nodes and disables the
-conflicting mainline hantro `vpu`; without it `/dev/mpp_service` is absent.
+the boards above.  The variants also include `rk3399-vpu.dtsi` (BSP MPP:
+`mpp_srv`/`vepu`/`vdpu`, mainline hantro `vpu` disabled) and
+`rk3399-iep.dtsi` (IEP image enhancement, `/dev/iep`); without them
+`/dev/mpp_service` and `/dev/iep` are absent.
 
 Currently enabled for `--boards all` (19):
 
