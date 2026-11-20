@@ -187,6 +187,38 @@ dmesg | grep -iE "dwc3|fusb302|tcpm"
 - 如果 `dmesg` 里没有 `dwc3`，确认内核 release 的 config 打开了
   `CONFIG_USB_DWC3`、`CONFIG_USB_ROLE_SWITCH`。
 
+## 硬件加速（rkmpp）没有启动
+
+现象：One-KVM/ffmpeg 的视频编解码走 CPU，`/dev/mpp_service` 不存在，
+或 `dmesg` 里没有 `mpp`/`vepu`/`vdpu` 相关探测日志。
+
+检查：
+
+```bash
+ls -l /dev/mpp_service
+cat /proc/mpp_service
+dmesg | grep -iE "mpp|vepu|vdpu|vpu"
+fdtget -t s /boot/dtb/rockchip/rk3399-bozz-sw799-otg.dtb /mpp-srv status
+fdtget -t s /boot/dtb/rockchip/rk3399-bozz-sw799-otg.dtb /vepu@ff650000 status
+fdtget -t s /boot/dtb/rockchip/rk3399-bozz-sw799-otg.dtb /vdpu@ff650400 status
+fdtget -t s /boot/dtb/rockchip/rk3399-bozz-sw799-otg.dtb /video-codec@ff650000 status
+```
+
+预期 `mpp-srv`、`vepu`、`vdpu`、`vpu_mmu`（`/iommu@ff650800`）都是
+`okay`，而 mainline hantro 的 `/video-codec@ff650000` 是 `disabled`。
+如果 `/video-codec@ff650000` 还是 `okay` 或 MPP 节点不存在，说明 DTB
+没有包含 `rk3399-vpu.dtsi`。
+
+`arch/arm64/boot/dts/rockchip/rk3399-vpu.dtsi` 是 BSP MPP 的 overlay：
+它注册 `mpp_srv`、`vepu`、`vdpu`，并禁用会与 MPP 冲突的 mainline
+hantro `vpu`。fmx1 的 DTS 一直包含它；批量移植的 `-otg` DTS 现在也全部
+包含。修复后需要用新的内核 release 重新构建镜像，或临时把新的
+`rk3399-*-otg.dtb` 复制到设备的 `/boot/dtb/rockchip/` 后重启。
+
+内核侧正常但加速仍未生效时，检查用户态是否真的走 MPP：
+`ffmpeg -decoders | grep rkmpp`、One-KVM 的编码器设置，以及
+`/proc/mpp_service` 里的 session。
+
 ## Wi-Fi AP 没有启动
 
 检查：
