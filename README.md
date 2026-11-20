@@ -267,10 +267,14 @@ Web UI 里也内置了挂载时的 ISO 转换：它调用 `xorriso` 并依赖内
     安装为 `/usr/local/bin/scrcpy`，配套服务端安装为
     `/usr/local/share/scrcpy/scrcpy-server`；构建时校验 SHA256 和
     aarch64 架构；
-  - `distro`（trixie/NanoPC-T4）：安装发行版 `scrcpy` 包，通过
+  - `distro`（trixie/NanoPC-T4/SW799）：安装发行版 `scrcpy` 包，通过
     `ANDROID_SCRCPY_APT_SUITE="trixie-backports"` 从 backports 取
     3.3.4（`/usr/bin/scrcpy`）。预编译客户端链接的是 noble 的 FFmpeg 6
     SONAME，无法在 trixie 的 FFmpeg 7 上运行；
+- 构建时会读取实际安装的 scrcpy 版本，自动写入
+  `/etc/systemd/system/one-kvm.service.d/scrcpy-version.conf`，
+  设置 `ONE_KVM_SCRCPY_SERVER_VERSION`，避免 One-KVM 默认的 3.3
+  与 trixie 的 3.3.4 不匹配；
 - 用法示例（板子无桌面环境时录制）：
   ```bash
   adb devices

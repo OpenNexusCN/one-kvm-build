@@ -231,6 +231,8 @@ check "android tools install" bash -c "
     test -f '${tmp}/android-root/usr/local/share/scrcpy/scrcpy-server'
     test \"\$(sha256sum '${tmp}/android-root/usr/local/bin/scrcpy' | cut -d' ' -f1)\" = \
         '4fd97fd1134fd74b01c300e5b5c7f79121f278b719fef1e7fe179dc8692728c9'
+    grep -q 'ONE_KVM_SCRCPY_SERVER_VERSION=3.3' \
+        '${tmp}/android-root/etc/systemd/system/one-kvm.service.d/scrcpy-version.conf'
 "
 check "android tools reject tampered client" bash -c "
     cp -a 3rd/scrcpy-3.3-aarch64 '${tmp}/tampered-scrcpy'
@@ -247,6 +249,16 @@ check "android tools distro mode" bash -c "
         --mode distro \
         --skip-deps-check
     test ! -e '${tmp}/android-distro-root/usr/local/bin/scrcpy'
+"
+check "android scrcpy version dropin" bash -c "
+    mkdir -p '${tmp}/android-version-root'
+    bash scripts/features/android-tools.sh \
+        --root '${tmp}/android-version-root' \
+        --mode distro \
+        --server-version 3.3.4 \
+        --skip-deps-check
+    grep -q 'ONE_KVM_SCRCPY_SERVER_VERSION=3.3.4' \
+        '${tmp}/android-version-root/etc/systemd/system/one-kvm.service.d/scrcpy-version.conf'
 "
 check "apt suite requires suite name" bash -c "
     mkdir -p '${tmp}/apt-root'

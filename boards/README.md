@@ -26,7 +26,10 @@ because J23 only exposes USB2 D+/D-.  DWC3_1 remains the stock host port.
 The board has AP6236/AP6181-class SDIO Wi-Fi (`wifi@1` on `sdio0`); the
 trixie image ships the matching brcmfmac firmware, so the default Wi-Fi AP
 feature works.  Like nanopc-t4, this board uses
-`ANDROID_SCRCPY_MODE="distro"` with `trixie-backports` for scrcpy 3.3.4.
+`ANDROID_SCRCPY_MODE="distro"` with `trixie-backports` for scrcpy 3.3.4;
+the image build writes a `one-kvm.service` drop-in setting
+`ONE_KVM_SCRCPY_SERVER_VERSION=3.3.4` so One-KVM's default 3.3 does not
+cause a server/client version mismatch.
 
 ## Batch RK3399 boards
 

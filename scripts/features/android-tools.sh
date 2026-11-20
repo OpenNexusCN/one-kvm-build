@@ -25,6 +25,7 @@ Options:
   --mode prebuilt|distro   scrcpy source (default: prebuilt)
   --source DIR             Prebuilt scrcpy tree (prebuilt mode)
   --min-version VERSION    Minimum scrcpy version (distro mode, default: 3.3)
+  --server-version VERSION One-KVM scrcpy-server version (default: auto)
   --skip-deps-check        Do not verify packages/libraries inside ROOT
 EOF
 }
@@ -33,6 +34,7 @@ ROOT=""
 SOURCE=""
 MODE="prebuilt"
 MIN_VERSION="3.3"
+SERVER_VERSION=""
 SKIP_DEPS="false"
 
 while [ $# -gt 0 ]; do
@@ -41,6 +43,7 @@ while [ $# -gt 0 ]; do
         --mode) MODE="${2:-}"; shift 2 ;;
         --source) SOURCE="${2:-}"; shift 2 ;;
         --min-version) MIN_VERSION="${2:-}"; shift 2 ;;
+        --server-version) SERVER_VERSION="${2:-}"; shift 2 ;;
         --skip-deps-check) SKIP_DEPS="true"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" ;;
@@ -81,6 +84,23 @@ check_runtime_libs() {
     done
 }
 
+# One-KVM launches the scrcpy server with ONE_KVM_SCRCPY_SERVER_VERSION
+# (default 3.3).  The trixie package is 3.3.4, so without a drop-in the
+# server aborts with "server version (3.3.4) does not match the client
+# (3.3)".  Write the matching version into the image at build time.
+write_onekvm_dropin() {
+    local version="$1"
+    [ -n "$version" ] || return 0
+    local dir="${ROOT}/etc/systemd/system/one-kvm.service.d"
+    mkdir -p "$dir"
+    cat >"${dir}/scrcpy-version.conf" <<EOF
+[Service]
+Environment=ONE_KVM_SCRCPY_SERVER_VERSION=${version}
+EOF
+    chmod 0644 "${dir}/scrcpy-version.conf"
+    info "One-KVM scrcpy server version: ${version}"
+}
+
 if [ "$MODE" = "distro" ]; then
     ver=""
     if [ "$SKIP_DEPS" != "true" ]; then
@@ -92,6 +112,12 @@ if [ "$MODE" = "distro" ]; then
             die "scrcpy ${ver} is older than ${MIN_VERSION}"
         fi
     fi
+    server_version="$SERVER_VERSION"
+    if [ -z "$server_version" ] && [ -n "$ver" ]; then
+        # Strip the Debian revision: 3.3.4-1~bpo13+1 -> 3.3.4.
+        server_version="${ver%%-*}"
+    fi
+    write_onekvm_dropin "$server_version"
     info "Using distribution scrcpy package (${ver:-unknown}); no prebuilt client installed"
     exit 0
 fi
@@ -125,5 +151,6 @@ fi
 install -D -m 0755 "${SOURCE}/scrcpy" "${ROOT}/usr/local/bin/scrcpy"
 install -D -m 0644 "${SOURCE}/scrcpy-server" \
     "${ROOT}/usr/local/share/scrcpy/scrcpy-server"
+write_onekvm_dropin "${SERVER_VERSION:-3.3}"
 
 info "scrcpy 3.3 installed (client /usr/local/bin/scrcpy, server /usr/local/share/scrcpy/scrcpy-server)"

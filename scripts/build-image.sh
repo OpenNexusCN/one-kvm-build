@@ -433,9 +433,22 @@ configure_android_tools() {
         info "Android tools installation disabled"
         return 0
     fi
+    local server_version="${ANDROID_SCRCPY_SERVER_VERSION:-}"
+    if [ -z "$server_version" ]; then
+        if [ "${ANDROID_SCRCPY_MODE:-prebuilt}" = "distro" ]; then
+            local pkg="${ANDROID_SCRCPY_DISTRO_PACKAGE:-scrcpy}" ver
+            ver="$(dpkg-query --root="$ROOT_MNT" -W -f='${Version}' "$pkg" 2>/dev/null || true)"
+            [ -n "$ver" ] || die "Cannot read the installed ${pkg} version"
+            server_version="${ver%%-*}"
+        else
+            server_version="${ANDROID_SCRCPY_VERSION:-3.3}"
+        fi
+    fi
+    ANDROID_SCRCPY_SERVER_VERSION="$server_version"
     bash "${SCRIPT_DIR}/features/android-tools.sh" \
         --root "$ROOT_MNT" \
-        --mode "${ANDROID_SCRCPY_MODE:-prebuilt}"
+        --mode "${ANDROID_SCRCPY_MODE:-prebuilt}" \
+        --server-version "$server_version"
 }
 
 # ---------------------------------------------------------------------------
@@ -471,6 +484,7 @@ write_image_manifest() {
         --arg android_tools_packages "${ANDROID_TOOLS_PACKAGES:-adb ffmpeg}" \
         --arg android_scrcpy_version "${ANDROID_SCRCPY_VERSION:-3.3}" \
         --arg android_scrcpy_mode "${ANDROID_SCRCPY_MODE:-prebuilt}" \
+        --arg android_scrcpy_server_version "${ANDROID_SCRCPY_SERVER_VERSION:-}" \
         --arg android_scrcpy_source "$ANDROID_SCRCPY_SOURCE" \
         --arg android_scrcpy_client "$ANDROID_SCRCPY_CLIENT" \
         --arg android_scrcpy_server "$ANDROID_SCRCPY_SERVER" \
@@ -493,6 +507,7 @@ write_image_manifest() {
                           packages: $android_tools_packages,
                           scrcpy_version: $android_scrcpy_version,
                           scrcpy_mode: $android_scrcpy_mode,
+                          scrcpy_server_version: $android_scrcpy_server_version,
                           scrcpy_source: $android_scrcpy_source,
                           client: $android_scrcpy_client,
                           server: $android_scrcpy_server}}' \
@@ -629,6 +644,7 @@ jq -n \
     --arg android_tools_packages "${ANDROID_TOOLS_PACKAGES:-adb ffmpeg}" \
     --arg android_scrcpy_version "${ANDROID_SCRCPY_VERSION:-3.3}" \
     --arg android_scrcpy_mode "${ANDROID_SCRCPY_MODE:-prebuilt}" \
+    --arg android_scrcpy_server_version "${ANDROID_SCRCPY_SERVER_VERSION:-}" \
     --arg android_scrcpy_source "$ANDROID_SCRCPY_SOURCE" \
     --arg android_scrcpy_client "$ANDROID_SCRCPY_CLIENT" \
     --arg android_scrcpy_server "$ANDROID_SCRCPY_SERVER" \
@@ -650,6 +666,7 @@ jq -n \
                       packages: $android_tools_packages,
                       scrcpy_version: $android_scrcpy_version,
                       scrcpy_mode: $android_scrcpy_mode,
+                      scrcpy_server_version: $android_scrcpy_server_version,
                       scrcpy_source: $android_scrcpy_source,
                       client: $android_scrcpy_client,
                       server: $android_scrcpy_server}}' \

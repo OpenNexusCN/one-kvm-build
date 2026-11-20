@@ -354,6 +354,41 @@ FMX1 上应指向 `/usr/local/bin/scrcpy`，NanoPC-T4 上应指向
 `ANDROID_TOOLS_ENABLED=false`。板子没有桌面环境时使用
 `--no-playback --record=...`。
 
+## scrcpy server/client 版本不匹配
+
+现象：One-KVM 日志出现：
+
+```text
+[server] ERROR: The server version (3.3.4) does not match the client (3.3)
+```
+
+之后一直等待 video socket。原因不是 adb/USB，而是版本号：
+
+- noble/FMX1：预编译 client 和 server 都是 **3.3**
+- trixie/NanoPC-T4/SW799：使用发行版 scrcpy **3.3.4**
+  （预编译 3.3 链接 noble 的 FFmpeg 6，无法在 trixie 的 FFmpeg 7 上运行）
+- One-KVM 未配置时默认按 **3.3** 启动服务端，所以 trixie 上必然不匹配
+
+构建时已经自动处理：`android-tools.sh` 会读取安装的发行版版本
+（`3.3.4-1~bpo13+1` → `3.3.4`），写入：
+
+```text
+/etc/systemd/system/one-kvm.service.d/scrcpy-version.conf
+[Service]
+Environment=ONE_KVM_SCRCPY_SERVER_VERSION=3.3.4
+```
+
+预编译模式写入 3.3。检查：
+
+```bash
+cat /etc/systemd/system/one-kvm.service.d/scrcpy-version.conf
+systemctl show one-kvm -p Environment
+```
+
+如果设备上已经有手动 drop-in，值相同可以保留；重新刷入新镜像后不再需要
+手工添加。也可以按板子配置覆盖：
+`ANDROID_SCRCPY_SERVER_VERSION="3.3.4"`。
+
 ## 构建失败：scrcpy 校验或架构不符
 
 现象：
