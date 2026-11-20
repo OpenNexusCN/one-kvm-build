@@ -70,6 +70,29 @@ check "nanopc-t4 scrcpy distro config" bash -c '
     [ "$ANDROID_SCRCPY_MODE" = "distro" ]
     [ "$ANDROID_SCRCPY_APT_SUITE" = "trixie-backports" ]
 '
+check "scrcpy mode matches codename (all boards)" bash -c '
+    trixie_distro=0
+    noble_prebuilt=0
+    for f in boards/*.conf; do
+        source config/defaults.conf
+        source "$f"
+        [ "${ANDROID_TOOLS_ENABLED:-true}" = "true" ] || continue
+        text="$BASE_IMAGE_RELEASE $BASE_IMAGE_ASSET_PATTERN"
+        case "$text" in
+            *trixie*)
+                [ "$ANDROID_SCRCPY_MODE" = "distro" ] || exit 1
+                [ -n "$ANDROID_SCRCPY_APT_SUITE" ] || exit 1
+                trixie_distro=$((trixie_distro + 1))
+                ;;
+            *noble*)
+                [ "$ANDROID_SCRCPY_MODE" = "prebuilt" ] || exit 1
+                noble_prebuilt=$((noble_prebuilt + 1))
+                ;;
+        esac
+    done
+    [ "$trixie_distro" -ge 40 ]
+    [ "$noble_prebuilt" -eq 2 ]
+'
 check "matrix sw799" bash -c '
     out="$(bash scripts/prepare-matrix.sh --boards sw799)"
     printf "%s" "$out" | jq -e "length == 1 and .[0].board == \"sw799\" and .[0].config == \"boards/sw799.conf\"" >/dev/null

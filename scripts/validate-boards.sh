@@ -41,18 +41,24 @@ for config in "${files[@]}"; do
             --arg name "${BOARD_NAME:-}" \
             --arg family "${SOC_FAMILY:-}" \
             --arg base_repo "${BASE_IMAGE_REPO:-}" \
+            --arg base_release "${BASE_IMAGE_RELEASE:-}" \
             --arg base_pattern "${BASE_IMAGE_ASSET_PATTERN:-}" \
             --arg base_url "${BASE_IMAGE_URL:-}" \
             --arg dtb "${KERNEL_DTB:-}" \
             --arg dtb_from_base "${KERNEL_DTB_FROM_BASE_IMAGE:-false}" \
+            --arg android_enabled "${ANDROID_TOOLS_ENABLED:-true}" \
             --arg scrcpy_mode "${ANDROID_SCRCPY_MODE:-prebuilt}" \
             --arg scrcpy_suite "${ANDROID_SCRCPY_APT_SUITE:-}" \
+            --arg scrcpy_server_version "${ANDROID_SCRCPY_SERVER_VERSION:-}" \
             --arg onekvm "${ONE_KVM_ENABLED:-true}" \
             --arg onekvm_pattern "${ONE_KVM_ASSET_PATTERN:-}" \
             '{id: $id, name: $name, family: $family, base_repo: $base_repo,
-              base_pattern: $base_pattern, base_url: $base_url, dtb: $dtb,
+              base_release: $base_release, base_pattern: $base_pattern,
+              base_url: $base_url, dtb: $dtb,
               dtb_from_base: $dtb_from_base,
+              android_enabled: $android_enabled,
               scrcpy_mode: $scrcpy_mode, scrcpy_suite: $scrcpy_suite,
+              scrcpy_server_version: $scrcpy_server_version,
               onekvm: $onekvm, onekvm_pattern: $onekvm_pattern}'
     )" || { err "${config}: cannot be sourced"; continue; }
 
@@ -60,12 +66,15 @@ for config in "${files[@]}"; do
     name="$(printf '%s' "$meta" | jq -r '.name')"
     family="$(printf '%s' "$meta" | jq -r '.family')"
     base_repo="$(printf '%s' "$meta" | jq -r '.base_repo')"
+    base_release="$(printf '%s' "$meta" | jq -r '.base_release')"
     base_pattern="$(printf '%s' "$meta" | jq -r '.base_pattern')"
     base_url="$(printf '%s' "$meta" | jq -r '.base_url')"
     dtb="$(printf '%s' "$meta" | jq -r '.dtb')"
     dtb_from_base="$(printf '%s' "$meta" | jq -r '.dtb_from_base')"
+    android_enabled="$(printf '%s' "$meta" | jq -r '.android_enabled')"
     scrcpy_mode="$(printf '%s' "$meta" | jq -r '.scrcpy_mode')"
     scrcpy_suite="$(printf '%s' "$meta" | jq -r '.scrcpy_suite')"
+    scrcpy_server_version="$(printf '%s' "$meta" | jq -r '.scrcpy_server_version')"
     onekvm="$(printf '%s' "$meta" | jq -r '.onekvm')"
     onekvm_pattern="$(printf '%s' "$meta" | jq -r '.onekvm_pattern')"
 
@@ -91,6 +100,30 @@ for config in "${files[@]}"; do
     if [ -n "$scrcpy_suite" ]; then
         [[ "$scrcpy_suite" =~ ^[a-z0-9][a-z0-9-]*$ ]] \
             || err "${config}: ANDROID_SCRCPY_APT_SUITE is not a valid apt suite"
+    fi
+    if [ -n "$scrcpy_server_version" ]; then
+        [[ "$scrcpy_server_version" =~ ^[0-9A-Za-z][0-9A-Za-z.+~-]*$ ]] \
+            || err "${config}: ANDROID_SCRCPY_SERVER_VERSION is not a valid version string"
+    fi
+
+    # The prebuilt client is built against noble's FFmpeg 6; trixie needs
+    # the distribution scrcpy package (FFmpeg 7).  Keep the mode tied to
+    # the base image codename so a new board cannot silently mismatch.
+    codename=""
+    case "$base_release $base_pattern" in
+        *trixie*) codename="trixie" ;;
+        *noble*) codename="noble" ;;
+    esac
+    if [ "$android_enabled" = "true" ] && [ -n "$codename" ]; then
+        case "${codename}:${scrcpy_mode}" in
+            trixie:prebuilt)
+                err "${config}: trixie base image must use ANDROID_SCRCPY_MODE=distro (prebuilt links FFmpeg 6)" ;;
+            noble:distro)
+                err "${config}: noble base image should use ANDROID_SCRCPY_MODE=prebuilt (distro 1.25 crashes on Android 14+)" ;;
+        esac
+        if [ "$scrcpy_mode" = "distro" ] && [ -z "$scrcpy_suite" ]; then
+            err "${config}: distro scrcpy requires ANDROID_SCRCPY_APT_SUITE (e.g. trixie-backports)"
+        fi
     fi
     if [ "$onekvm" = "true" ]; then
         [ -n "$onekvm_pattern" ] || err "${config}: ONE_KVM_ASSET_PATTERN is empty"
